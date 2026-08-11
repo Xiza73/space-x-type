@@ -1,13 +1,10 @@
 import { COLORS, FONTS } from '../theme/tokens'
 import { TIMING } from './constants'
 import {
-  meanOffsetMs,
   multiplierFor,
   PERFECT_CENTER,
   progressAt,
   remainingMs,
-  totalMisses,
-  totalRounds,
   type GameState,
   type Judgement,
 } from './engine'
@@ -70,12 +67,9 @@ export function draw(canvas: HTMLCanvasElement, state: GameState, nowMs: number)
   ctx.fillStyle = COLORS.night
   ctx.fillRect(0, 0, w, h)
 
-  // Terminada la partida, el gameplay no se dibuja. Antes se tapaba con un
-  // overlay traslúcido y las casillas y el riel se colaban por debajo.
-  if (state.status === 'over') {
-    drawGameOver(ctx, state, w, h)
-    return
-  }
+  // Terminada la partida el canvas queda vacío: la pantalla de resultados es
+  // React, porque necesita un input de texto para el nombre.
+  if (state.status === 'over') return
 
   drawHud(ctx, state, nowMs, w)
   drawFeedback(ctx, state, w, h)
@@ -300,107 +294,6 @@ function edge(ctx: CanvasRenderingContext2D, rail: Rect, at: number): void {
 export function withAlpha(hex: string, alpha: number): string {
   const n = Number.parseInt(hex.slice(1), 16)
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
-}
-
-function drawGameOver(
-  ctx: CanvasRenderingContext2D,
-  state: GameState,
-  w: number,
-  h: number,
-): void {
-  ctx.textAlign = 'center'
-  ctx.font = `700 48px ${FONTS.display}`
-  ctx.fillStyle = COLORS.ink
-  ctx.fillText('GAME OVER', w / 2, h * 0.22)
-
-  scoreCell(ctx, 'PUNTAJE', String(state.score), COLORS.cyan, w / 2 - 110, h * 0.32)
-  scoreCell(ctx, 'MAX COMBO', String(state.maxCombo), COLORS.magenta, w / 2 + 110, h * 0.32)
-
-  drawStats(ctx, state, w, h)
-
-  ctx.textAlign = 'center'
-  ctx.font = `600 16px ${FONTS.ui}`
-  ctx.fillStyle = COLORS.inkSoft
-  ctx.fillText('ENTER para reintentar', w / 2, h * 0.88)
-}
-
-function scoreCell(
-  ctx: CanvasRenderingContext2D,
-  name: string,
-  value: string,
-  color: string,
-  x: number,
-  y: number,
-): void {
-  label(ctx, name, x, y)
-  ctx.textAlign = 'center'
-  ctx.font = `700 36px ${FONTS.display}`
-  ctx.fillStyle = color
-  ctx.fillText(value, x, y + 42)
-}
-
-/**
- * Desglose para calibrar. Sin esto, "se siente raro" no se puede convertir en
- * qué constante mover: los tres tipos de miss se sienten igual jugando y se
- * arreglan con números distintos.
- */
-function drawStats(
-  ctx: CanvasRenderingContext2D,
-  state: GameState,
-  w: number,
-  h: number,
-): void {
-  const s = state.stats
-  const rounds = totalRounds(s)
-  if (rounds === 0) return
-
-  const pct = (n: number) => `${Math.round((n / rounds) * 100)}%`
-  const y = h * 0.52
-
-  const cells = [
-    { name: 'PERFECT', n: s.perfect, color: COLORS.gold },
-    { name: 'GREAT', n: s.great, color: COLORS.magenta },
-    { name: 'GOOD', n: s.good, color: COLORS.cyan },
-    { name: 'BAD', n: s.bad, color: COLORS.purple },
-    { name: 'MISS', n: totalMisses(s), color: COLORS.red },
-  ].map((c) => ({ ...c, value: String(c.n), sub: pct(c.n) }))
-
-  ctx.textAlign = 'center'
-  const spacing = Math.min(140, (w - 80) / cells.length)
-  let x = w / 2 - (spacing * (cells.length - 1)) / 2
-
-  for (const cell of cells) {
-    label(ctx, cell.name, x, y)
-    ctx.textAlign = 'center'
-    ctx.font = `700 30px ${FONTS.display}`
-    ctx.fillStyle = cell.color
-    ctx.fillText(cell.value, x, y + 36)
-    ctx.font = `600 13px ${FONTS.ui}`
-    ctx.fillStyle = COLORS.inkMuted
-    ctx.fillText(cell.sub, x, y + 56)
-    x += spacing
-  }
-
-  // Las dos líneas que realmente dicen qué constante mover.
-  ctx.textAlign = 'center'
-  ctx.font = `600 14px ${FONTS.ui}`
-  ctx.fillStyle = COLORS.inkSoft
-  ctx.fillText(
-    `sin terminar a tiempo ${s.missTimeout}  ·  espacio anticipado ${s.missIncomplete}  ·  fuera de zona ${s.missWindow}`,
-    w / 2,
-    h * 0.72,
-  )
-
-  const offset = meanOffsetMs(s)
-  if (offset === null) return
-
-  const ms = Math.round(offset)
-  const veredicto =
-    Math.abs(ms) < 25 ? 'centrado' : ms < 0 ? 'apretás ANTES de tiempo' : 'apretás DESPUÉS'
-
-  ctx.font = `700 15px ${FONTS.ui}`
-  ctx.fillStyle = Math.abs(ms) < 25 ? COLORS.gold : COLORS.inkSoft
-  ctx.fillText(`desvío medio ${ms > 0 ? '+' : ''}${ms}ms — ${veredicto}`, w / 2, h * 0.78)
 }
 
 /** Label chico en mayúscula con el tracking ancho que es firma del estilo. */

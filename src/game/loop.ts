@@ -18,6 +18,7 @@ import type { Step } from './sequence'
 export type Loop = {
   stop(): void
   handleKey(rawKey: string): void
+  restart(): void
 }
 
 export type LoopOptions = {
@@ -31,6 +32,11 @@ export type LoopOptions = {
    * una palabra.
    */
   nextSequence: (length: number) => Step[]
+  /**
+   * Se llama una sola vez, al terminar la partida. La pantalla de resultados
+   * vive en React porque necesita un input de texto, y un input no va en canvas.
+   */
+  onGameOver: (state: GameState) => void
 }
 
 /**
@@ -40,9 +46,21 @@ export type LoopOptions = {
  * Es el único lugar donde los dos ejes se tocan, y se tocan sin conocerse: le
  * pide el largo al ritmo y se lo pasa a la secuencia.
  */
-export function startGameLoop({ canvas, config, bpm, rhythm, nextSequence }: LoopOptions): Loop {
+export function startGameLoop({
+  canvas,
+  config,
+  bpm,
+  rhythm,
+  nextSequence,
+  onGameOver,
+}: LoopOptions): Loop {
   let state = createGame(config)
   let raf = 0
+  // La partida puede terminar en `tick` (se acabó el tiempo) o en `pressSpace`
+  // (se acabaron las vidas). Comparar el estado anterior contra el nuevo dentro
+  // del frame se pierde el segundo caso, porque para cuando corre el frame el
+  // estado ya venía en `over`. Una bandera cubre los dos caminos.
+  let notified = false
 
   startChiptune(bpm)
 
@@ -58,8 +76,10 @@ export function startGameLoop({ canvas, config, bpm, rhythm, nextSequence }: Loo
     if (state !== before && before.status === 'round' && state.status !== 'round') {
       sfxMiss()
     }
-    if (state.status === 'over' && before.status !== 'over') {
+    if (state.status === 'over' && !notified) {
+      notified = true
       stopChiptune()
+      onGameOver(state)
     }
 
     if (state.status === 'idle') {
@@ -74,10 +94,8 @@ export function startGameLoop({ canvas, config, bpm, rhythm, nextSequence }: Loo
   raf = requestAnimationFrame(frame)
 
   function handleKey(rawKey: string): void {
-    if (state.status === 'over') {
-      if (rawKey === 'Enter') restart()
-      return
-    }
+    // Terminada la partida manda la pantalla de resultados, que es React.
+    if (state.status === 'over') return
 
     if (rawKey === ' ') {
       const { state: next, judgement } = pressSpace(state, nowMs())
@@ -95,6 +113,7 @@ export function startGameLoop({ canvas, config, bpm, rhythm, nextSequence }: Loo
 
   function restart(): void {
     state = createGame(config)
+    notified = false
     startChiptune(bpm)
   }
 
@@ -104,6 +123,7 @@ export function startGameLoop({ canvas, config, bpm, rhythm, nextSequence }: Loo
       stopChiptune()
     },
     handleKey,
+    restart,
   }
 }
 

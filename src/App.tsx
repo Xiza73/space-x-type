@@ -54,6 +54,7 @@ export function App() {
         language={language}
         rhythmMode={rhythmMode}
         speed={speed}
+        onMenu={() => setStarted(false)}
       />
     )
   }
