@@ -1,17 +1,54 @@
 /* ponytail: reset mínimo. Los tokens de diseño llegan con Tailwind 4
    (ver .claude/rules/design-system.md); no hardcodear paleta acá. */
 html,
-body {
+body,
+#root {
   margin: 0;
   padding: 0;
+  height: 100%;
   background: #0b0b12;
   color: #e8eaf6;
   font-family: system-ui, sans-serif;
+  overflow: hidden;
 }
 
 main {
   display: grid;
   place-content: center;
-  min-height: 100vh;
+  justify-items: center;
+  gap: 20px;
+  height: 100%;
+  padding: 24px;
+  box-sizing: border-box;
   text-align: center;
+}
+
+main p {
+  max-width: 520px;
+  margin: 0;
+  color: #aab0cf;
+  line-height: 1.5;
+}
+
+button {
+  padding: 14px 40px;
+  border: none;
+  border-radius: 12px;
+  background: #ff2e88;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #ff5aa5;
+}
+
+/* El canvas ocupa toda la ventana: el gameplay se dibuja entero acá. */
+.stage {
+  display: block;
+  width: 100vw;
+  height: 100vh;
 }
