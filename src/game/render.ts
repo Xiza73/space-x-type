@@ -1,5 +1,5 @@
 import { COLORS, FONTS } from '../theme/tokens'
-import { TIMING } from './constants'
+import { SONG, TIMING } from './constants'
 import {
   multiplierFor,
   PERFECT_CENTER,
@@ -102,34 +102,44 @@ function drawHud(
   nowMs: number,
   w: number,
 ): void {
+  const remaining = remainingMs(state, nowMs)
+  const hasLives = state.config.lives !== null
+
   const cells: { label: string; value: string; color: string }[] = [
     { label: 'SCORE', value: String(state.score), color: COLORS.ink },
     { label: 'COMBO', value: String(state.combo), color: COLORS.magenta },
     { label: 'MULT', value: `x${multiplierFor(state.combo)}`, color: COLORS.cyan },
   ]
 
-  const spacing = 150
-  const totalW = spacing * (cells.length + 1)
-  let x = w / 2 - totalW / 2 + spacing / 2
+  // Cada modo muestra la palanca de dificultad que realmente se mueve: en
+  // arcade el nivel (la velocidad), en canción la cantidad de teclas.
+  // Las teclas NO van acá: se dibujan pegadas al riel, que es donde el jugador
+  // tiene los ojos. Un dato que hay que percibir de inmediato no puede obligar
+  // a mirar al otro extremo de la pantalla.
+  if (remaining === null) {
+    cells.push({ label: 'NIVEL', value: String(state.level), color: COLORS.gold })
+  } else {
+    cells.push({ label: 'TIEMPO', value: formatClock(remaining), color: COLORS.gold })
+  }
+
+  const slots = cells.length + (hasLives ? 1 : 0)
+  const spacing = Math.min(150, (w - 80) / slots)
+  let x = w / 2 - (spacing * (slots - 1)) / 2
 
   ctx.textAlign = 'center'
   for (const cell of cells) {
     label(ctx, cell.label, x, 40)
+    ctx.textAlign = 'center'
     ctx.font = `700 30px ${FONTS.display}`
     ctx.fillStyle = cell.color
     ctx.fillText(cell.value, x, 74)
     x += spacing
   }
 
-  // En arcade la referencia es el nivel; en canción, cuánto queda de partida.
-  const remaining = remainingMs(state, nowMs)
-  label(
-    ctx,
-    remaining === null ? `NIVEL ${state.level}` : `TIEMPO ${formatClock(remaining)}`,
-    x,
-    40,
-  )
-  drawHearts(ctx, state, x, 74)
+  if (hasLives) {
+    label(ctx, 'VIDAS', x, 40)
+    drawHearts(ctx, state, x, 74)
+  }
 }
 
 function formatClock(ms: number): string {
@@ -143,7 +153,7 @@ function drawHearts(
   centerX: number,
   y: number,
 ): void {
-  const total = state.config.lives
+  const total = state.config.lives ?? 0
   ctx.font = `22px ${FONTS.ui}`
   ctx.textAlign = 'center'
 
@@ -182,31 +192,110 @@ function drawSequence(
   ctx.textBaseline = 'middle'
 
   tiles.forEach((tile, i) => {
-    const done = i < state.index
-    const current = i === state.index
+    const skin = i < state.index ? SKIN.done : i === state.index ? SKIN.current : SKIN.idle
+    const r = tile.width / 2
+    const cx = tile.x + r
+    const cy = tile.y + r
 
-    roundedRect(ctx, tile.x, tile.y, tile.width, tile.height, 13)
-    ctx.fillStyle = done ? COLORS.magentaDark : COLORS.tile
-    ctx.fill()
-    ctx.lineWidth = 2
-    ctx.strokeStyle = done ? COLORS.magenta : current ? COLORS.cyan : COLORS.line
-    ctx.stroke()
+    drawDisc(ctx, cx, cy, r, skin)
 
     const step = state.sequence[i]
-    const cx = tile.x + tile.width / 2
-    const cy = tile.y + tile.height / 2
-    const fg = done || current ? COLORS.ink : COLORS.inkMuted
-
     if (step.dir === undefined) {
-      ctx.font = `32px ${FONTS.display}`
-      ctx.fillStyle = fg
-      ctx.fillText(step.glyph, cx, cy + 2)
+      // Chakra Petch y no Bungee: Bungee es un display muy pesado y sus letras
+      // sueltas se confunden entre sí. Acá la letra hay que leerla de un vistazo
+      // y tipearla bien, así que manda la legibilidad.
+      ctx.font = `700 34px ${FONTS.ui}`
+      ctx.lineJoin = 'round'
+      ctx.lineWidth = 6
+      ctx.strokeStyle = skin.outline
+      ctx.strokeText(step.glyph, cx, cy + 1)
+      ctx.fillStyle = skin.fg
+      ctx.fillText(step.glyph, cx, cy + 1)
     } else {
-      drawArrow(ctx, step.dir, cx, cy, 32, fg)
+      drawArrow(ctx, step.dir, cx, cy, r * 1.05, skin)
     }
   })
 
   ctx.textBaseline = 'alphabetic'
+}
+
+type Skin = {
+  top: string
+  bottom: string
+  ring: string
+  glow: string | null
+  fg: string
+  outline: string
+}
+
+/**
+ * Las tres pieles de una casilla. Redonda y con volumen en vez de un cuadrado
+ * plano: el estilo arcade vive del brillo, y un rectángulo mate no lo tiene.
+ */
+const SKIN: Record<'done' | 'current' | 'idle', Skin> = {
+  done: {
+    top: COLORS.magentaLight,
+    bottom: COLORS.magentaDark,
+    ring: COLORS.flare,
+    glow: COLORS.magenta,
+    fg: COLORS.flare,
+    outline: COLORS.magentaDark,
+  },
+  current: {
+    top: COLORS.surface,
+    bottom: COLORS.trackDeep,
+    ring: COLORS.cyan,
+    glow: COLORS.cyan,
+    fg: COLORS.flare,
+    outline: COLORS.night,
+  },
+  idle: {
+    top: COLORS.tile,
+    bottom: COLORS.trackDeep,
+    ring: COLORS.line,
+    glow: null,
+    fg: COLORS.inkMuted,
+    outline: COLORS.night,
+  },
+}
+
+/** Disco con gradiente radial, anillo y un brillo arriba. */
+function drawDisc(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  skin: Skin,
+): void {
+  ctx.save()
+  if (skin.glow !== null) {
+    ctx.shadowColor = withAlpha(skin.glow, 0.75)
+    ctx.shadowBlur = 20
+  }
+  // El foco arriba a la izquierda es lo que le da volumen: un gradiente
+  // centrado se ve plano por más colores que le pongas.
+  const fill = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.45, r * 0.1, cx, cy, r)
+  fill.addColorStop(0, skin.top)
+  fill.addColorStop(1, skin.bottom)
+
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fillStyle = fill
+  ctx.fill()
+  ctx.restore()
+
+  ctx.beginPath()
+  ctx.arc(cx, cy, r - 1.5, 0, Math.PI * 2)
+  ctx.lineWidth = 3
+  ctx.strokeStyle = withAlpha(skin.ring, skin.glow === null ? 1 : 0.9)
+  ctx.stroke()
+
+  // Reflejo: un arco fino en la mitad de arriba.
+  ctx.beginPath()
+  ctx.arc(cx, cy, r - 5, Math.PI * 1.15, Math.PI * 1.85)
+  ctx.lineWidth = 3
+  ctx.strokeStyle = withAlpha(COLORS.flare, 0.22)
+  ctx.stroke()
 }
 
 function drawRail(
@@ -230,13 +319,12 @@ function drawRail(
   ctx.clip()
 
   // Las zonas salen de TIMING: lo que ves es exactamente lo que puntúa.
+  //
+  // La información va en el BRILLO, no en el tono: blanco en el centro y se
+  // apaga hacia los bordes. El ojo lee luminancia mucho más rápido que matiz,
+  // y así el riel también le sirve a alguien daltónico.
   ctx.fillStyle = zoneGradient(ctx, rail)
   ctx.fillRect(rail.x, rail.y, rail.width, rail.height)
-
-  // Los bordes de PERFECT sí van marcados: el degradado se ve lindo pero no te
-  // dice dónde empieza exactamente la zona que más suma.
-  edge(ctx, rail, TIMING.perfectStart)
-  edge(ctx, rail, TIMING.perfectEnd)
 
   if (state.status === 'round') {
     ctx.fillStyle = COLORS.magentaLight
@@ -244,10 +332,65 @@ function drawRail(
   }
   ctx.restore()
 
+  // El medidor de dificultad va pegado al riel, en el recorrido natural de la
+  // vista entre las casillas y el marcador.
+  if (state.config.durationMs !== null) {
+    drawDifficultyMeter(ctx, state.sequence.length, w, rail.y - 14)
+  }
+
   ctx.textAlign = 'center'
   ctx.font = `700 12px ${FONTS.ui}`
   ctx.fillStyle = COLORS.inkMuted
-  ctx.fillText('SECUENCIA  →  ESPACIO EN LA ZONA DORADA', w / 2, rail.y + rail.height + 28)
+  ctx.fillText('SECUENCIA  →  ESPACIO O ENTER EN LA ZONA CLARA', w / 2, rail.y + rail.height + 28)
+}
+
+const METER_BAR_W = 9
+const METER_GAP = 5
+const METER_MIN_H = 7
+const METER_MAX_H = 21
+
+/**
+ * Escalera de dificultad: un escalón por cada largo posible de secuencia, de
+ * `minKeys` a `maxKeys`. Se prenden los alcanzados y el actual brilla.
+ *
+ * Reemplaza a un `TECLAS 6` porque el número no es el dato que hace falta. Lo
+ * que el jugador necesita percibir de un vistazo es **dónde está en la curva**:
+ * si viene subiendo, si está cerca del techo, si acaba de reiniciar. La forma
+ * ascendente dice "esto se pone más difícil" sin una sola palabra, y la cantidad
+ * exacta ya está a la vista en las casillas.
+ */
+function drawDifficultyMeter(
+  ctx: CanvasRenderingContext2D,
+  count: number,
+  w: number,
+  bottomY: number,
+): void {
+  const steps = SONG.maxKeys - SONG.minKeys + 1
+  const current = Math.min(steps - 1, Math.max(0, count - SONG.minKeys))
+  const totalW = steps * METER_BAR_W + (steps - 1) * METER_GAP
+  let x = w / 2 - totalW / 2
+
+  for (let i = 0; i < steps; i++) {
+    const height = METER_MIN_H + ((METER_MAX_H - METER_MIN_H) * i) / (steps - 1)
+
+    ctx.beginPath()
+    ctx.roundRect(x, bottomY - height, METER_BAR_W, height, 3)
+
+    if (i === current) {
+      ctx.save()
+      ctx.shadowColor = withAlpha(COLORS.flare, 0.85)
+      ctx.shadowBlur = 14
+      ctx.fillStyle = COLORS.flare
+      ctx.fill()
+      ctx.restore()
+    } else {
+      ctx.fillStyle =
+        i < current ? withAlpha(COLORS.flare, 0.4) : withAlpha(COLORS.line, 0.75)
+      ctx.fill()
+    }
+
+    x += METER_BAR_W + METER_GAP
+  }
 }
 
 /**
@@ -259,35 +402,21 @@ function drawRail(
  */
 export function zoneGradient(ctx: CanvasRenderingContext2D, rail: Rect): CanvasGradient {
   const g = ctx.createLinearGradient(rail.x, 0, rail.x + rail.width, 0)
-  const mid = (a: number, b: number) => (a + b) / 2
 
   // Los stops tienen que ir en orden creciente o el navegador tira error.
-  g.addColorStop(0, withAlpha(COLORS.purple, 0))
-  g.addColorStop(TIMING.badStart, withAlpha(COLORS.purple, 0))
-  g.addColorStop(mid(TIMING.badStart, TIMING.goodStart), withAlpha(COLORS.purple, 0.16))
-  g.addColorStop(TIMING.goodStart, withAlpha(COLORS.cyan, 0.2))
-  g.addColorStop(TIMING.greatStart, withAlpha(COLORS.magenta, 0.28))
-  g.addColorStop(TIMING.perfectStart, withAlpha(COLORS.gold, 0.34))
-  g.addColorStop(PERFECT_CENTER, withAlpha(COLORS.gold, 0.52))
-  g.addColorStop(TIMING.perfectEnd, withAlpha(COLORS.gold, 0.34))
-  g.addColorStop(TIMING.greatEnd, withAlpha(COLORS.magenta, 0.28))
-  g.addColorStop(TIMING.goodEnd, withAlpha(COLORS.cyan, 0.2))
-  g.addColorStop(mid(TIMING.goodEnd, TIMING.badEnd), withAlpha(COLORS.purple, 0.16))
-  g.addColorStop(TIMING.badEnd, withAlpha(COLORS.purple, 0))
-  g.addColorStop(1, withAlpha(COLORS.purple, 0))
+  g.addColorStop(0, withAlpha(COLORS.cyan, 0))
+  g.addColorStop(TIMING.badStart, withAlpha(COLORS.cyan, 0))
+  g.addColorStop(TIMING.goodStart, withAlpha(COLORS.cyan, 0.16))
+  g.addColorStop(TIMING.greatStart, withAlpha(COLORS.cyan, 0.44))
+  g.addColorStop(TIMING.perfectStart, withAlpha(COLORS.flare, 0.66))
+  g.addColorStop(PERFECT_CENTER, withAlpha(COLORS.flare, 0.95))
+  g.addColorStop(TIMING.perfectEnd, withAlpha(COLORS.flare, 0.66))
+  g.addColorStop(TIMING.greatEnd, withAlpha(COLORS.cyan, 0.44))
+  g.addColorStop(TIMING.goodEnd, withAlpha(COLORS.cyan, 0.16))
+  g.addColorStop(TIMING.badEnd, withAlpha(COLORS.cyan, 0))
+  g.addColorStop(1, withAlpha(COLORS.cyan, 0))
 
   return g
-}
-
-/** Marca vertical dorada en un punto del riel. */
-function edge(ctx: CanvasRenderingContext2D, rail: Rect, at: number): void {
-  const x = rail.x + at * rail.width
-  ctx.strokeStyle = withAlpha(COLORS.gold, 0.85)
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(x, rail.y)
-  ctx.lineTo(x, rail.y + rail.height)
-  ctx.stroke()
 }
 
 /** Los tokens son hex; el canvas necesita alpha por separado. */
@@ -324,26 +453,41 @@ function drawArrow(
   cx: number,
   cy: number,
   size: number,
-  color: string,
+  skin: Skin,
 ): void {
   const s = size / 2
-  const stem = s * 0.42
+  const head = s * 0.9
+  const stem = s * 0.34
 
   ctx.save()
   ctx.translate(cx, cy)
   ctx.rotate(ARROW_ANGLE[dir])
-  ctx.fillStyle = color
+  // Uniones y puntas redondeadas: el polígono crudo se veía duro y de otro
+  // juego. Con esto la misma silueta pasa a tener aire arcade.
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
 
   ctx.beginPath()
-  ctx.moveTo(s, 0)
-  ctx.lineTo(0, -s)
+  ctx.moveTo(head, 0)
+  ctx.lineTo(0, -head)
   ctx.lineTo(0, -stem)
-  ctx.lineTo(-s, -stem)
-  ctx.lineTo(-s, stem)
+  ctx.lineTo(-head, -stem)
+  ctx.lineTo(-head, stem)
   ctx.lineTo(0, stem)
-  ctx.lineTo(0, s)
+  ctx.lineTo(0, head)
   ctx.closePath()
+
+  // Contorno grueso primero; después el relleno lo engorda hasta el borde
+  // interno. Es lo que le da el look de sticker.
+  ctx.lineWidth = size * 0.3
+  ctx.strokeStyle = skin.outline
+  ctx.stroke()
+
+  ctx.fillStyle = skin.fg
   ctx.fill()
+  ctx.lineWidth = size * 0.14
+  ctx.strokeStyle = skin.fg
+  ctx.stroke()
 
   ctx.restore()
 }

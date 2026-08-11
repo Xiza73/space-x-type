@@ -80,6 +80,10 @@
   --color-magenta-light: #ff5aa5;
   --color-magenta-dark: #c1156b;
   --color-cyan: #29e5ff;
+  /* Núcleo de la zona de acierto en el riel. Aqua bien claro: mantiene la
+     luminancia alta —que es lo que hace legible la rampa— pero con color
+     propio, para no ser el blanco de Audition. */
+  --color-flare: #7dffdd;
   --color-gold: #ffd23e;
   --color-gold-light: #ffe27a;
   --color-gold-dark: #ffc21e;

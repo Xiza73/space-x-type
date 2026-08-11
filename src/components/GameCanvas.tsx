@@ -37,7 +37,11 @@ export function GameCanvas({ sequenceType, language, rhythmMode, speed, onMenu }
 
     const loop = startGameLoop({
       canvas,
-      config: { lives: DEFAULTS.lives, durationMs: rhythm.totalDurationMs },
+      // Canción no lleva vidas: dura lo que dura la canción, se falle o no.
+      config: {
+        lives: rhythmMode === 'arcade' ? DEFAULTS.lives : null,
+        durationMs: rhythm.totalDurationMs,
+      },
       bpm: DEFAULTS.bpm,
       rhythm,
       nextSequence: sequenceProvider(sequenceType, language),
