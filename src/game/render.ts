@@ -64,7 +64,7 @@ export function draw(canvas: HTMLCanvasElement, state: GameState, nowMs: number)
   const w = canvas.clientWidth
   const h = canvas.clientHeight
 
-  ctx.fillStyle = COLORS.bg
+  ctx.fillStyle = COLORS.night
   ctx.fillRect(0, 0, w, h)
 
   drawHud(ctx, state, w)
@@ -96,7 +96,7 @@ function prepare(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
 
 function drawHud(ctx: CanvasRenderingContext2D, state: GameState, w: number): void {
   const cells: { label: string; value: string; color: string }[] = [
-    { label: 'SCORE', value: String(state.score), color: COLORS.text },
+    { label: 'SCORE', value: String(state.score), color: COLORS.ink },
     { label: 'COMBO', value: String(state.combo), color: COLORS.magenta },
     { label: 'MULT', value: `x${multiplierFor(state.combo)}`, color: COLORS.cyan },
   ]
@@ -131,7 +131,7 @@ function drawHearts(
   const step = 26
   const startX = centerX - ((total - 1) * step) / 2
   for (let i = 0; i < total; i++) {
-    ctx.fillStyle = i < state.lives ? COLORS.magenta : COLORS.borderMuted
+    ctx.fillStyle = i < state.lives ? COLORS.magenta : COLORS.lineMuted
     ctx.fillText('♥', startX + i * step, y)
   }
 }
@@ -167,14 +167,14 @@ function drawSequence(
     const current = i === state.index
 
     roundedRect(ctx, tile.x, tile.y, tile.width, tile.height, 13)
-    ctx.fillStyle = done ? COLORS.magentaDark : COLORS.tileIdle
+    ctx.fillStyle = done ? COLORS.magentaDark : COLORS.tile
     ctx.fill()
     ctx.lineWidth = 2
-    ctx.strokeStyle = done ? COLORS.magenta : current ? COLORS.cyan : COLORS.border
+    ctx.strokeStyle = done ? COLORS.magenta : current ? COLORS.cyan : COLORS.line
     ctx.stroke()
 
     ctx.font = `32px ${FONTS.display}`
-    ctx.fillStyle = done || current ? COLORS.text : COLORS.textMuted
+    ctx.fillStyle = done || current ? COLORS.ink : COLORS.inkMuted
     ctx.fillText(state.sequence[i].glyph, tile.x + tile.width / 2, tile.y + tile.height / 2 + 2)
   })
 
@@ -194,7 +194,7 @@ function drawRail(
   ctx.fillStyle = COLORS.track
   ctx.fill()
   ctx.lineWidth = 1
-  ctx.strokeStyle = COLORS.border
+  ctx.strokeStyle = COLORS.line
   ctx.stroke()
 
   ctx.save()
@@ -213,7 +213,7 @@ function drawRail(
 
   ctx.textAlign = 'center'
   ctx.font = `700 12px ${FONTS.ui}`
-  ctx.fillStyle = COLORS.textMuted
+  ctx.fillStyle = COLORS.inkMuted
   ctx.fillText('SECUENCIA  →  ESPACIO EN LA ZONA DORADA', w / 2, rail.y + rail.height + 28)
 }
 
@@ -253,7 +253,7 @@ function drawGameOver(
 
   ctx.textAlign = 'center'
   ctx.font = `700 56px ${FONTS.display}`
-  ctx.fillStyle = COLORS.text
+  ctx.fillStyle = COLORS.ink
   ctx.fillText('GAME OVER', w / 2, h * 0.38)
 
   label(ctx, 'PUNTAJE', w / 2 - 110, h * 0.5)
@@ -267,14 +267,14 @@ function drawGameOver(
   ctx.fillText(String(state.maxCombo), w / 2 + 110, h * 0.5 + 44)
 
   ctx.font = `600 16px ${FONTS.ui}`
-  ctx.fillStyle = COLORS.textSecondary
+  ctx.fillStyle = COLORS.inkSoft
   ctx.fillText('ENTER para reintentar', w / 2, h * 0.68)
 }
 
 /** Label chico en mayúscula con el tracking ancho que es firma del estilo. */
 function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {
   ctx.font = `700 11px ${FONTS.ui}`
-  ctx.fillStyle = COLORS.textMuted
+  ctx.fillStyle = COLORS.inkMuted
   ctx.letterSpacing = '3px'
   ctx.fillText(text, x, y)
   ctx.letterSpacing = '0px'
