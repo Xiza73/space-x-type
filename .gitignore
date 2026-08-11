@@ -1,0 +1,34 @@
+# Claude Code — personales
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Dependencias
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+src-tauri/target/
+src-tauri/gen/
+
+# Assets generados / caché local
+*.local
+audio-cache/
+beatmaps-cache/
+
+# Entorno
+.env
+.env.*
+!.env.example
+
+# Editores / SO
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
