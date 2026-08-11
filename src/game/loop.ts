@@ -1,6 +1,6 @@
 import { startChiptune, stopChiptune } from '../audio/chiptune'
 import { nowMs } from '../audio/context'
-import { sfxGood, sfxKey, sfxMiss, sfxPerfect, sfxWrong } from '../audio/sfx'
+import { sfxBad, sfxGood, sfxGreat, sfxKey, sfxMiss, sfxPerfect, sfxWrong } from '../audio/sfx'
 import {
   createGame,
   pressKey,
@@ -107,10 +107,16 @@ export function startGameLoop({ canvas, config, bpm, rhythm, nextSequence }: Loo
   }
 }
 
+const JUDGEMENT_SFX: Record<Judgement, () => void> = {
+  perfect: sfxPerfect,
+  great: sfxGreat,
+  good: sfxGood,
+  bad: sfxBad,
+  miss: sfxMiss,
+}
+
 function playJudgement(judgement: Judgement): void {
-  if (judgement === 'perfect') sfxPerfect()
-  else if (judgement === 'good') sfxGood()
-  else sfxMiss()
+  JUDGEMENT_SFX[judgement]()
 }
 
 export type { GameState }

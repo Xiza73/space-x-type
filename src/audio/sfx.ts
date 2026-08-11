@@ -21,8 +21,17 @@ export function sfxPerfect(): void {
   arpeggio([660, 880, 1320], 0.16, 0.14)
 }
 
+export function sfxGreat(): void {
+  arpeggio([620, 930], 0.15, 0.13)
+}
+
 export function sfxGood(): void {
   arpeggio([520, 780], 0.14, 0.12)
+}
+
+/** Apagado y sin brillo: suena a "zafaste", no a acierto. */
+export function sfxBad(): void {
+  playTone({ freq: 300, durationSec: 0.16, gain: 0.1, wave: 'triangle', slideTo: 260 })
 }
 
 export function sfxMiss(): void {

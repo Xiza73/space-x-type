@@ -45,11 +45,26 @@ juego a velocidad.
 
 | Token | Hex | Significa |
 |---|---|---|
-| `magenta` | `#ff2e88` | Acción primaria, combo, acierto, vidas. Variantes: `#ff5aa5` (claro), `#d61a77` / `#c1156b` (oscuro) |
+| `magenta` | `#ff2e88` | Acción primaria, combo, vidas, `GREAT`. Variantes: `#ff5aa5` (claro), `#d61a77` / `#c1156b` (oscuro) |
 | `cyan` | `#29e5ff` | Selección, multiplicador, puntaje, `GOOD`, links |
-| `gold` | `#ffd23e` | **La zona objetivo y `PERFECT`.** Es el color de "acá tenés que apretar". Variantes: `#ffe27a`, `#ffc21e` |
+| `gold` | `#ffd23e` | **El centro de la zona y `PERFECT`.** Es el color de "acá tenés que apretar". Variantes: `#ffe27a`, `#ffc21e` |
 | `red` | `#ff4d6d` | `MISS` |
-| `purple` | `#8b5cff` | Solo en el fondo psicodélico |
+| `purple` | `#8b5cff` | `BAD` y el fondo psicodélico |
+
+Los cinco escalones de acierto usan, del centro hacia afuera:
+**gold → magenta → cyan → purple → red**. Ese orden no es decorativo: es el mismo que dibuja
+el degradado del riel, así que el color que ves bajo el marcador te anticipa el veredicto.
+
+## El riel es un degradado, no bloques
+
+Con cuatro ventanas anidadas, pintarlas como rectángulos planos las convierte en una torta
+de capas que no comunica nada. El riel se pinta con **un solo degradado horizontal** cuyos
+stops son las constantes de `TIMING`, y se lee como un mapa de calor: cuanto más brillante,
+más suma.
+
+Los bordes de `PERFECT` sí llevan una línea dorada de 2px. El degradado se ve mejor pero no
+te dice **dónde empieza exactamente** la zona que más puntúa, y esa precisión el jugador la
+necesita.
 
 ## Tipografía
 

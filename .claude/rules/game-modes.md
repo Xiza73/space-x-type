@@ -57,14 +57,14 @@ duración de ronda   dur = max(1500, (4200 - (nivel - 1) * 350) * speedScale)   
 nivel               nivel = 1 + floor(aciertos / 4)
 progreso            p = tiempo transcurrido / dur        ∈ [0, 1]
 
-PERFECT             |p - 0.84| <= 0.045
-GOOD                0.72 <= p <= 0.96
+PERFECT             0.795 <= p <= 0.885
+GREAT               0.755 <= p <= 0.925
+GOOD                0.720 <= p <= 0.960
+BAD                 0.670 <= p <= 0.985
 MISS                cualquier otro caso, o p >= 1
 
 multiplicador       mult = 1 + floor(combo / 5)
-score PERFECT       150 * mult
-score GOOD          60  * mult
-MISS                combo = 0, vidas - 1
+score               PERFECT 150 · GREAT 100 · GOOD 60 · BAD 20   (× mult)
 
 vidas iniciales     3        (configurable 1–9)
 bpm                 132      (configurable 100–170, paso 2)
@@ -73,6 +73,25 @@ speedScale          1.0      (configurable 0.6–1.6, paso 0.1)
 
 **Todas estas constantes viven en UN módulo.** Números mágicos desparramados en el código
 son la razón por la que después nadie se anima a calibrar el juego.
+
+### Las ventanas están anidadas
+
+`bad ⊃ good ⊃ great ⊃ perfect`, todas centradas en `0.84`. `judge` prueba de la más chica a
+la más grande. Si alguien rompe el anidado, `judge` empieza a saltear escalones y el
+degradado del riel deja de tener sentido — hay un test que lo impide.
+
+### Qué hace cada escalón
+
+| | Puntos | Combo | Cuenta para progresión | Vida |
+|---|---|---|---|---|
+| `perfect` · `great` · `good` | sí | mantiene | sí | — |
+| `bad` | 20 | **corta** | **no** | — |
+| `miss` | 0 | corta | no | **−1** |
+
+**`bad` es el escalón que hace falta explicar.** Sumás algo y no perdés vida, pero se te
+corta el combo y no avanzás en la progresión. Sin eso sería un `good` flojo y no tendría
+razón de existir; con eso, es el aviso de que estás al borde **antes** de empezar a perder
+vidas. Un `miss` que llega sin advertencia se siente injusto.
 
 ### Reglas de input
 

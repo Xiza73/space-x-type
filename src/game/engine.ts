@@ -1,7 +1,23 @@
 import { PROGRESSION, ROUND, SCORING, TIMING } from './constants'
 import { normalizeKey, type Step } from './sequence'
 
-export type Judgement = 'perfect' | 'good' | 'miss'
+export type Judgement = 'perfect' | 'great' | 'good' | 'bad' | 'miss'
+
+/**
+ * Qué hace cada escalón con el estado.
+ *
+ * `bad` es el escalón interesante: **sumás puntos y no perdés vida, pero se te
+ * corta el combo y no cuenta para la progresión.** Sin eso sería un `good`
+ * flojo y no tendría razón de existir; con eso, es el aviso de que estás al
+ * borde antes de empezar a perder vidas.
+ */
+const RULES: Record<Judgement, { score: number; keepsCombo: boolean; counts: boolean; costsLife: boolean }> = {
+  perfect: { score: SCORING.perfect, keepsCombo: true, counts: true, costsLife: false },
+  great: { score: SCORING.great, keepsCombo: true, counts: true, costsLife: false },
+  good: { score: SCORING.good, keepsCombo: true, counts: true, costsLife: false },
+  bad: { score: SCORING.bad, keepsCombo: false, counts: false, costsLife: false },
+  miss: { score: 0, keepsCombo: false, counts: false, costsLife: true },
+}
 
 /**
  * Por qué se perdió la ronda. Los tres se sienten igual jugando —"me fue mal"—
@@ -24,7 +40,9 @@ export const PERFECT_CENTER = (TIMING.perfectStart + TIMING.perfectEnd) / 2
  */
 export type Stats = {
   perfect: number
+  great: number
   good: number
+  bad: number
   missTimeout: number
   missIncomplete: number
   missWindow: number
@@ -39,7 +57,9 @@ export type Stats = {
 
 const NO_STATS: Stats = {
   perfect: 0,
+  great: 0,
   good: 0,
+  bad: 0,
   missTimeout: 0,
   missIncomplete: 0,
   missWindow: 0,
@@ -54,8 +74,18 @@ export function meanOffsetMs(stats: Stats): number | null {
 
 export function totalRounds(stats: Stats): number {
   return (
-    stats.perfect + stats.good + stats.missTimeout + stats.missIncomplete + stats.missWindow
+    stats.perfect +
+    stats.great +
+    stats.good +
+    stats.bad +
+    stats.missTimeout +
+    stats.missIncomplete +
+    stats.missWindow
   )
+}
+
+export function totalMisses(stats: Stats): number {
+  return stats.missTimeout + stats.missIncomplete + stats.missWindow
 }
 
 /** Qué pasó con una tecla. El motor no suena: el que llama decide qué reproducir. */
@@ -104,9 +134,12 @@ export function multiplierFor(combo: number): number {
   return 1 + Math.floor(combo / SCORING.comboStep)
 }
 
+/** Se prueba de la ventana más chica a la más grande: están anidadas. */
 export function judge(progress: number): Judgement {
   if (progress >= TIMING.perfectStart && progress <= TIMING.perfectEnd) return 'perfect'
+  if (progress >= TIMING.greatStart && progress <= TIMING.greatEnd) return 'great'
   if (progress >= TIMING.goodStart && progress <= TIMING.goodEnd) return 'good'
+  if (progress >= TIMING.badStart && progress <= TIMING.badEnd) return 'bad'
   return 'miss'
 }
 
@@ -190,11 +223,11 @@ function resolve(
 ): GameState {
   // El multiplicador usa el combo ANTES de sumar el acierto de esta ronda.
   const mult = multiplierFor(state.combo)
-  const hit = judgement !== 'miss'
-  const combo = hit ? state.combo + 1 : 0
-  const hits = hit ? state.hits + 1 : state.hits
-  const lives = hit ? state.lives : state.lives - 1
-  const gained = judgement === 'perfect' ? SCORING.perfect : judgement === 'good' ? SCORING.good : 0
+  const rule = RULES[judgement]
+  const combo = rule.keepsCombo ? state.combo + 1 : 0
+  const hits = rule.counts ? state.hits + 1 : state.hits
+  const lives = rule.costsLife ? state.lives - 1 : state.lives
+  const gained = rule.score
 
   return {
     ...state,
@@ -220,7 +253,9 @@ function countRound(
   const next: Stats = { ...stats }
 
   if (judgement === 'perfect') next.perfect++
+  else if (judgement === 'great') next.great++
   else if (judgement === 'good') next.good++
+  else if (judgement === 'bad') next.bad++
   else if (detail.reason === 'incomplete') next.missIncomplete++
   else if (detail.reason === 'window') next.missWindow++
   else next.missTimeout++
