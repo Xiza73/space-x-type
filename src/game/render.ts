@@ -182,31 +182,107 @@ function drawSequence(
   ctx.textBaseline = 'middle'
 
   tiles.forEach((tile, i) => {
-    const done = i < state.index
-    const current = i === state.index
+    const skin = i < state.index ? SKIN.done : i === state.index ? SKIN.current : SKIN.idle
+    const r = tile.width / 2
+    const cx = tile.x + r
+    const cy = tile.y + r
 
-    roundedRect(ctx, tile.x, tile.y, tile.width, tile.height, 13)
-    ctx.fillStyle = done ? COLORS.magentaDark : COLORS.tile
-    ctx.fill()
-    ctx.lineWidth = 2
-    ctx.strokeStyle = done ? COLORS.magenta : current ? COLORS.cyan : COLORS.line
-    ctx.stroke()
+    drawDisc(ctx, cx, cy, r, skin)
 
     const step = state.sequence[i]
-    const cx = tile.x + tile.width / 2
-    const cy = tile.y + tile.height / 2
-    const fg = done || current ? COLORS.ink : COLORS.inkMuted
-
     if (step.dir === undefined) {
-      ctx.font = `32px ${FONTS.display}`
-      ctx.fillStyle = fg
-      ctx.fillText(step.glyph, cx, cy + 2)
+      ctx.font = `700 30px ${FONTS.display}`
+      ctx.lineJoin = 'round'
+      ctx.lineWidth = 6
+      ctx.strokeStyle = skin.outline
+      ctx.strokeText(step.glyph, cx, cy + 1)
+      ctx.fillStyle = skin.fg
+      ctx.fillText(step.glyph, cx, cy + 1)
     } else {
-      drawArrow(ctx, step.dir, cx, cy, 32, fg)
+      drawArrow(ctx, step.dir, cx, cy, r * 1.05, skin)
     }
   })
 
   ctx.textBaseline = 'alphabetic'
+}
+
+type Skin = {
+  top: string
+  bottom: string
+  ring: string
+  glow: string | null
+  fg: string
+  outline: string
+}
+
+/**
+ * Las tres pieles de una casilla. Redonda y con volumen en vez de un cuadrado
+ * plano: el estilo arcade vive del brillo, y un rectángulo mate no lo tiene.
+ */
+const SKIN: Record<'done' | 'current' | 'idle', Skin> = {
+  done: {
+    top: COLORS.magentaLight,
+    bottom: COLORS.magentaDark,
+    ring: COLORS.flare,
+    glow: COLORS.magenta,
+    fg: COLORS.flare,
+    outline: COLORS.magentaDark,
+  },
+  current: {
+    top: COLORS.surface,
+    bottom: COLORS.trackDeep,
+    ring: COLORS.cyan,
+    glow: COLORS.cyan,
+    fg: COLORS.flare,
+    outline: COLORS.night,
+  },
+  idle: {
+    top: COLORS.tile,
+    bottom: COLORS.trackDeep,
+    ring: COLORS.line,
+    glow: null,
+    fg: COLORS.inkMuted,
+    outline: COLORS.night,
+  },
+}
+
+/** Disco con gradiente radial, anillo y un brillo arriba. */
+function drawDisc(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  skin: Skin,
+): void {
+  ctx.save()
+  if (skin.glow !== null) {
+    ctx.shadowColor = withAlpha(skin.glow, 0.75)
+    ctx.shadowBlur = 20
+  }
+  // El foco arriba a la izquierda es lo que le da volumen: un gradiente
+  // centrado se ve plano por más colores que le pongas.
+  const fill = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.45, r * 0.1, cx, cy, r)
+  fill.addColorStop(0, skin.top)
+  fill.addColorStop(1, skin.bottom)
+
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fillStyle = fill
+  ctx.fill()
+  ctx.restore()
+
+  ctx.beginPath()
+  ctx.arc(cx, cy, r - 1.5, 0, Math.PI * 2)
+  ctx.lineWidth = 3
+  ctx.strokeStyle = withAlpha(skin.ring, skin.glow === null ? 1 : 0.9)
+  ctx.stroke()
+
+  // Reflejo: un arco fino en la mitad de arriba.
+  ctx.beginPath()
+  ctx.arc(cx, cy, r - 5, Math.PI * 1.15, Math.PI * 1.85)
+  ctx.lineWidth = 3
+  ctx.strokeStyle = withAlpha(COLORS.flare, 0.22)
+  ctx.stroke()
 }
 
 function drawRail(
@@ -230,13 +306,12 @@ function drawRail(
   ctx.clip()
 
   // Las zonas salen de TIMING: lo que ves es exactamente lo que puntúa.
+  //
+  // La información va en el BRILLO, no en el tono: blanco en el centro y se
+  // apaga hacia los bordes. El ojo lee luminancia mucho más rápido que matiz,
+  // y así el riel también le sirve a alguien daltónico.
   ctx.fillStyle = zoneGradient(ctx, rail)
   ctx.fillRect(rail.x, rail.y, rail.width, rail.height)
-
-  // Los bordes de PERFECT sí van marcados: el degradado se ve lindo pero no te
-  // dice dónde empieza exactamente la zona que más suma.
-  edge(ctx, rail, TIMING.perfectStart)
-  edge(ctx, rail, TIMING.perfectEnd)
 
   if (state.status === 'round') {
     ctx.fillStyle = COLORS.magentaLight
@@ -259,35 +334,21 @@ function drawRail(
  */
 export function zoneGradient(ctx: CanvasRenderingContext2D, rail: Rect): CanvasGradient {
   const g = ctx.createLinearGradient(rail.x, 0, rail.x + rail.width, 0)
-  const mid = (a: number, b: number) => (a + b) / 2
 
   // Los stops tienen que ir en orden creciente o el navegador tira error.
-  g.addColorStop(0, withAlpha(COLORS.purple, 0))
-  g.addColorStop(TIMING.badStart, withAlpha(COLORS.purple, 0))
-  g.addColorStop(mid(TIMING.badStart, TIMING.goodStart), withAlpha(COLORS.purple, 0.16))
-  g.addColorStop(TIMING.goodStart, withAlpha(COLORS.cyan, 0.2))
-  g.addColorStop(TIMING.greatStart, withAlpha(COLORS.magenta, 0.28))
-  g.addColorStop(TIMING.perfectStart, withAlpha(COLORS.gold, 0.34))
-  g.addColorStop(PERFECT_CENTER, withAlpha(COLORS.gold, 0.52))
-  g.addColorStop(TIMING.perfectEnd, withAlpha(COLORS.gold, 0.34))
-  g.addColorStop(TIMING.greatEnd, withAlpha(COLORS.magenta, 0.28))
-  g.addColorStop(TIMING.goodEnd, withAlpha(COLORS.cyan, 0.2))
-  g.addColorStop(mid(TIMING.goodEnd, TIMING.badEnd), withAlpha(COLORS.purple, 0.16))
-  g.addColorStop(TIMING.badEnd, withAlpha(COLORS.purple, 0))
-  g.addColorStop(1, withAlpha(COLORS.purple, 0))
+  g.addColorStop(0, withAlpha(COLORS.cyan, 0))
+  g.addColorStop(TIMING.badStart, withAlpha(COLORS.cyan, 0))
+  g.addColorStop(TIMING.goodStart, withAlpha(COLORS.cyan, 0.16))
+  g.addColorStop(TIMING.greatStart, withAlpha(COLORS.cyan, 0.44))
+  g.addColorStop(TIMING.perfectStart, withAlpha(COLORS.flare, 0.66))
+  g.addColorStop(PERFECT_CENTER, withAlpha(COLORS.flare, 0.95))
+  g.addColorStop(TIMING.perfectEnd, withAlpha(COLORS.flare, 0.66))
+  g.addColorStop(TIMING.greatEnd, withAlpha(COLORS.cyan, 0.44))
+  g.addColorStop(TIMING.goodEnd, withAlpha(COLORS.cyan, 0.16))
+  g.addColorStop(TIMING.badEnd, withAlpha(COLORS.cyan, 0))
+  g.addColorStop(1, withAlpha(COLORS.cyan, 0))
 
   return g
-}
-
-/** Marca vertical dorada en un punto del riel. */
-function edge(ctx: CanvasRenderingContext2D, rail: Rect, at: number): void {
-  const x = rail.x + at * rail.width
-  ctx.strokeStyle = withAlpha(COLORS.gold, 0.85)
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(x, rail.y)
-  ctx.lineTo(x, rail.y + rail.height)
-  ctx.stroke()
 }
 
 /** Los tokens son hex; el canvas necesita alpha por separado. */
@@ -324,26 +385,41 @@ function drawArrow(
   cx: number,
   cy: number,
   size: number,
-  color: string,
+  skin: Skin,
 ): void {
   const s = size / 2
-  const stem = s * 0.42
+  const head = s * 0.9
+  const stem = s * 0.34
 
   ctx.save()
   ctx.translate(cx, cy)
   ctx.rotate(ARROW_ANGLE[dir])
-  ctx.fillStyle = color
+  // Uniones y puntas redondeadas: el polígono crudo se veía duro y de otro
+  // juego. Con esto la misma silueta pasa a tener aire arcade.
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
 
   ctx.beginPath()
-  ctx.moveTo(s, 0)
-  ctx.lineTo(0, -s)
+  ctx.moveTo(head, 0)
+  ctx.lineTo(0, -head)
   ctx.lineTo(0, -stem)
-  ctx.lineTo(-s, -stem)
-  ctx.lineTo(-s, stem)
+  ctx.lineTo(-head, -stem)
+  ctx.lineTo(-head, stem)
   ctx.lineTo(0, stem)
-  ctx.lineTo(0, s)
+  ctx.lineTo(0, head)
   ctx.closePath()
+
+  // Contorno grueso primero; después el relleno lo engorda hasta el borde
+  // interno. Es lo que le da el look de sticker.
+  ctx.lineWidth = size * 0.3
+  ctx.strokeStyle = skin.outline
+  ctx.stroke()
+
+  ctx.fillStyle = skin.fg
   ctx.fill()
+  ctx.lineWidth = size * 0.14
+  ctx.strokeStyle = skin.fg
+  ctx.stroke()
 
   ctx.restore()
 }

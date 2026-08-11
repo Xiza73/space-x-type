@@ -80,6 +80,9 @@
   --color-magenta-light: #ff5aa5;
   --color-magenta-dark: #c1156b;
   --color-cyan: #29e5ff;
+  /* Núcleo de la zona de acierto en el riel. Casi blanco, con un pique de cyan
+     para que no se vea muerto sobre el fondo azulado. */
+  --color-flare: #e8fbff;
   --color-gold: #ffd23e;
   --color-gold-light: #ffe27a;
   --color-gold-dark: #ffc21e;

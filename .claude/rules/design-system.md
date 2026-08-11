@@ -51,20 +51,30 @@ juego a velocidad.
 | `red` | `#ff4d6d` | `MISS` |
 | `purple` | `#8b5cff` | `BAD` y el fondo psicodélico |
 
-Los cinco escalones de acierto usan, del centro hacia afuera:
-**gold → magenta → cyan → purple → red**. Ese orden no es decorativo: es el mismo que dibuja
-el degradado del riel, así que el color que ves bajo el marcador te anticipa el veredicto.
+Los cinco escalones usan **gold · magenta · cyan · purple · red** en el texto de feedback y
+en el panel de resultados.
 
-## El riel es un degradado, no bloques
+## El riel: brillo, no color
 
-Con cuatro ventanas anidadas, pintarlas como rectángulos planos las convierte en una torta
-de capas que no comunica nada. El riel se pinta con **un solo degradado horizontal** cuyos
-stops son las constantes de `TIMING`, y se lee como un mapa de calor: cuanto más brillante,
-más suma.
+El riel **no** usa esos cinco colores. Se pinta con un único degradado horizontal que va de
+`flare` (casi blanco) en el centro a `cyan` transparente en los bordes de `BAD`. Los stops
+son las constantes de `TIMING`.
 
-Los bordes de `PERFECT` sí llevan una línea dorada de 2px. El degradado se ve mejor pero no
-te dice **dónde empieza exactamente** la zona que más puntúa, y esa precisión el jugador la
-necesita.
+| Token | Hex | Uso |
+|---|---|---|
+| `flare` | `#e8fbff` | Núcleo de la zona de acierto en el riel |
+
+La información va en la **luminancia**, no en el matiz, y eso es deliberado:
+
+- El ojo lee brillo mucho más rápido que color. En un juego que se juega a velocidad, eso
+  es la diferencia entre llegar y no llegar.
+- Un jugador daltónico distingue perfectamente claro de oscuro. Con un degradado de matices
+  no distinguía nada.
+- Con cuatro ventanas anidadas, pintar cada una de su color las convierte en una torta de
+  capas que no comunica nada.
+
+Medido: el brillo cae de forma **monótona** de 234 en el centro a 26 en el borde de `BAD`.
+No hay marcas de borde: la rampa misma señala dónde está el centro.
 
 ## Tipografía
 
@@ -101,8 +111,13 @@ hacen nada. Encima, `hue-rotate` de 40s y dos capas de oscurecimiento.
 
 ## Geometría y movimiento
 
-- Radios: `8px` (chips) · `9–10px` (botones) · `12–14px` (paneles, riel) · `13px` (casillas).
-- Casilla de secuencia: `66×66px`.
+- Radios: `8px` (chips) · `9–10px` (botones) · `12–14px` (paneles, riel).
+- Casilla de secuencia: **círculo** de `66px` de diámetro, con gradiente radial cuyo foco
+  está arriba a la izquierda —un gradiente centrado se ve plano por más colores que le
+  pongas—, anillo de `3px` y un arco de reflejo en la mitad superior.
+- Las flechas se dibujan con uniones y puntas redondeadas, contorno grueso primero y
+  relleno encima: eso les da el aire de sticker. El polígono crudo se veía duro y de otro
+  juego.
 - Riel de timing: `min(720px, 86vw) × 48px`.
 - Transiciones de UI: `.12–.15s`. Feedback (`fbpop`): `.7s ease-out`.
 - La zona dorada pulsa (`zonepulse`, 1s) — es lo único que late en pantalla. Que siga así.
