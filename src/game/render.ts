@@ -1,9 +1,11 @@
 import { COLORS, FONTS, ZONE_ALPHA } from '../theme/tokens'
 import { TIMING } from './constants'
 import {
+  meanOffsetMs,
   multiplierFor,
   progressAt,
   remainingMs,
+  totalRounds,
   type GameState,
   type Judgement,
 } from './engine'
@@ -285,23 +287,101 @@ function drawGameOver(
   ctx.fillRect(0, 0, w, h)
 
   ctx.textAlign = 'center'
-  ctx.font = `700 56px ${FONTS.display}`
+  ctx.font = `700 48px ${FONTS.display}`
   ctx.fillStyle = COLORS.ink
-  ctx.fillText('GAME OVER', w / 2, h * 0.38)
+  ctx.fillText('GAME OVER', w / 2, h * 0.22)
 
-  label(ctx, 'PUNTAJE', w / 2 - 110, h * 0.5)
-  ctx.font = `700 40px ${FONTS.display}`
-  ctx.fillStyle = COLORS.cyan
-  ctx.fillText(String(state.score), w / 2 - 110, h * 0.5 + 44)
+  scoreCell(ctx, 'PUNTAJE', String(state.score), COLORS.cyan, w / 2 - 110, h * 0.32)
+  scoreCell(ctx, 'MAX COMBO', String(state.maxCombo), COLORS.magenta, w / 2 + 110, h * 0.32)
 
-  label(ctx, 'MAX COMBO', w / 2 + 110, h * 0.5)
-  ctx.font = `700 40px ${FONTS.display}`
-  ctx.fillStyle = COLORS.magenta
-  ctx.fillText(String(state.maxCombo), w / 2 + 110, h * 0.5 + 44)
+  drawStats(ctx, state, w, h)
 
+  ctx.textAlign = 'center'
   ctx.font = `600 16px ${FONTS.ui}`
   ctx.fillStyle = COLORS.inkSoft
-  ctx.fillText('ENTER para reintentar', w / 2, h * 0.68)
+  ctx.fillText('ENTER para reintentar', w / 2, h * 0.88)
+}
+
+function scoreCell(
+  ctx: CanvasRenderingContext2D,
+  name: string,
+  value: string,
+  color: string,
+  x: number,
+  y: number,
+): void {
+  label(ctx, name, x, y)
+  ctx.textAlign = 'center'
+  ctx.font = `700 36px ${FONTS.display}`
+  ctx.fillStyle = color
+  ctx.fillText(value, x, y + 42)
+}
+
+/**
+ * Desglose para calibrar. Sin esto, "se siente raro" no se puede convertir en
+ * qué constante mover: los tres tipos de miss se sienten igual jugando y se
+ * arreglan con números distintos.
+ */
+function drawStats(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  w: number,
+  h: number,
+): void {
+  const s = state.stats
+  const rounds = totalRounds(s)
+  if (rounds === 0) return
+
+  const pct = (n: number) => `${Math.round((n / rounds) * 100)}%`
+  const y = h * 0.52
+
+  const cells = [
+    { name: 'PERFECT', value: `${s.perfect}`, sub: pct(s.perfect), color: COLORS.gold },
+    { name: 'GOOD', value: `${s.good}`, sub: pct(s.good), color: COLORS.cyan },
+    {
+      name: 'MISS',
+      value: `${s.missTimeout + s.missIncomplete + s.missWindow}`,
+      sub: pct(s.missTimeout + s.missIncomplete + s.missWindow),
+      color: COLORS.red,
+    },
+  ]
+
+  ctx.textAlign = 'center'
+  const spacing = 160
+  let x = w / 2 - (spacing * (cells.length - 1)) / 2
+
+  for (const cell of cells) {
+    label(ctx, cell.name, x, y)
+    ctx.textAlign = 'center'
+    ctx.font = `700 30px ${FONTS.display}`
+    ctx.fillStyle = cell.color
+    ctx.fillText(cell.value, x, y + 36)
+    ctx.font = `600 13px ${FONTS.ui}`
+    ctx.fillStyle = COLORS.inkMuted
+    ctx.fillText(cell.sub, x, y + 56)
+    x += spacing
+  }
+
+  // Las dos líneas que realmente dicen qué constante mover.
+  ctx.textAlign = 'center'
+  ctx.font = `600 14px ${FONTS.ui}`
+  ctx.fillStyle = COLORS.inkSoft
+  ctx.fillText(
+    `sin terminar a tiempo ${s.missTimeout}  ·  espacio anticipado ${s.missIncomplete}  ·  fuera de zona ${s.missWindow}`,
+    w / 2,
+    h * 0.72,
+  )
+
+  const offset = meanOffsetMs(s)
+  if (offset === null) return
+
+  const ms = Math.round(offset)
+  const veredicto =
+    Math.abs(ms) < 25 ? 'centrado' : ms < 0 ? 'apretás ANTES de tiempo' : 'apretás DESPUÉS'
+
+  ctx.font = `700 15px ${FONTS.ui}`
+  ctx.fillStyle = Math.abs(ms) < 25 ? COLORS.gold : COLORS.inkSoft
+  ctx.fillText(`desvío medio ${ms > 0 ? '+' : ''}${ms}ms — ${veredicto}`, w / 2, h * 0.78)
 }
 
 /** Label chico en mayúscula con el tracking ancho que es firma del estilo. */

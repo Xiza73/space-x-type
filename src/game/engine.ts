@@ -3,6 +3,61 @@ import { normalizeKey, type Step } from './sequence'
 
 export type Judgement = 'perfect' | 'good' | 'miss'
 
+/**
+ * Por qué se perdió la ronda. Los tres se sienten igual jugando —"me fue mal"—
+ * pero se arreglan con números distintos, así que hay que poder distinguirlos.
+ */
+export type MissReason =
+  /** Se acabó la barra sin que apretaras espacio. */
+  | 'timeout'
+  /** Apretaste espacio con la secuencia sin terminar. */
+  | 'incomplete'
+  /** Secuencia completa, pero fuera de la ventana. */
+  | 'window'
+
+/** Centro de la ventana PERFECT. La referencia contra la que se mide el desvío. */
+export const PERFECT_CENTER = (TIMING.perfectStart + TIMING.perfectEnd) / 2
+
+/**
+ * Medición de la partida. Existe para calibrar: sin esto, "se siente raro" no
+ * se puede convertir en "movele 200ms a la duración de ronda".
+ */
+export type Stats = {
+  perfect: number
+  good: number
+  missTimeout: number
+  missIncomplete: number
+  missWindow: number
+  /**
+   * Suma de desvíos respecto del centro de PERFECT, en milisegundos.
+   * Negativo = apretás antes de tiempo. Solo cuenta rondas con la secuencia
+   * completa: las demás no dicen nada sobre tu timing.
+   */
+  offsetSumMs: number
+  offsetCount: number
+}
+
+const NO_STATS: Stats = {
+  perfect: 0,
+  good: 0,
+  missTimeout: 0,
+  missIncomplete: 0,
+  missWindow: 0,
+  offsetSumMs: 0,
+  offsetCount: 0,
+}
+
+/** Desvío promedio en ms. `null` si nunca se completó una secuencia. */
+export function meanOffsetMs(stats: Stats): number | null {
+  return stats.offsetCount === 0 ? null : stats.offsetSumMs / stats.offsetCount
+}
+
+export function totalRounds(stats: Stats): number {
+  return (
+    stats.perfect + stats.good + stats.missTimeout + stats.missIncomplete + stats.missWindow
+  )
+}
+
 /** Qué pasó con una tecla. El motor no suena: el que llama decide qué reproducir. */
 export type KeyResult = 'advance' | 'reset' | 'ignored'
 
@@ -38,6 +93,7 @@ export type GameState = {
   readonly lastJudgement: Judgement | null
   /** Cuándo arrancó la primera ronda. `null` hasta que arranca. */
   readonly sessionStartMs: number | null
+  readonly stats: Stats
 }
 
 export function levelFor(hits: number): number {
@@ -83,6 +139,7 @@ export function createGame(config: GameConfig): GameState {
     resolvedAtMs: 0,
     lastJudgement: null,
     sessionStartMs: null,
+    stats: NO_STATS,
   }
 }
 
@@ -120,7 +177,17 @@ export function remainingMs(state: GameState, nowMs: number): number | null {
   return Math.max(0, total - (nowMs - state.sessionStartMs))
 }
 
-function resolve(state: GameState, judgement: Judgement, nowMs: number): GameState {
+/**
+ * `progress` va solo cuando la secuencia estaba completa: es la única ronda que
+ * dice algo sobre el timing del jugador. Si no terminó de tipear, el momento en
+ * que apretó no mide su precisión, mide su velocidad de dedos.
+ */
+function resolve(
+  state: GameState,
+  judgement: Judgement,
+  nowMs: number,
+  detail: { reason?: MissReason; progress?: number } = {},
+): GameState {
   // El multiplicador usa el combo ANTES de sumar el acierto de esta ronda.
   const mult = multiplierFor(state.combo)
   const hit = judgement !== 'miss'
@@ -140,7 +207,30 @@ function resolve(state: GameState, judgement: Judgement, nowMs: number): GameSta
     level: levelFor(hits),
     resolvedAtMs: nowMs,
     lastJudgement: judgement,
+    stats: countRound(state.stats, judgement, detail, state.roundDurationMs),
   }
+}
+
+function countRound(
+  stats: Stats,
+  judgement: Judgement,
+  detail: { reason?: MissReason; progress?: number },
+  roundDurationMs: number,
+): Stats {
+  const next: Stats = { ...stats }
+
+  if (judgement === 'perfect') next.perfect++
+  else if (judgement === 'good') next.good++
+  else if (detail.reason === 'incomplete') next.missIncomplete++
+  else if (detail.reason === 'window') next.missWindow++
+  else next.missTimeout++
+
+  if (detail.progress !== undefined) {
+    next.offsetSumMs += (detail.progress - PERFECT_CENTER) * roundDurationMs
+    next.offsetCount++
+  }
+
+  return next
 }
 
 /**
@@ -171,10 +261,20 @@ export function pressSpace(
 ): { state: GameState; judgement: Judgement | null } {
   if (state.status !== 'round') return { state, judgement: null }
 
-  const judgement =
-    state.index < state.sequence.length ? 'miss' : judge(progressAt(state, nowMs))
+  if (state.index < state.sequence.length) {
+    return { state: resolve(state, 'miss', nowMs, { reason: 'incomplete' }), judgement: 'miss' }
+  }
 
-  return { state: resolve(state, judgement, nowMs), judgement }
+  const progress = progressAt(state, nowMs)
+  const judgement = judge(progress)
+
+  return {
+    state: resolve(state, judgement, nowMs, {
+      reason: judgement === 'miss' ? 'window' : undefined,
+      progress,
+    }),
+    judgement,
+  }
 }
 
 /**
@@ -190,7 +290,7 @@ export function tick(state: GameState, nowMs: number): GameState {
     return { ...state, status: 'over' }
   }
   if (state.status === 'round' && progressAt(state, nowMs) >= 1) {
-    return resolve(state, 'miss', nowMs)
+    return resolve(state, 'miss', nowMs, { reason: 'timeout' })
   }
   if (state.status === 'resolved' && nowMs - state.resolvedAtMs >= ROUND.interRoundPauseMs) {
     return { ...state, status: 'idle' }

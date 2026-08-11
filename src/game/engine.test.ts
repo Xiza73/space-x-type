@@ -5,13 +5,16 @@ import {
   createGame,
   judge,
   levelFor,
+  meanOffsetMs,
   multiplierFor,
+  PERFECT_CENTER,
   pressKey,
   pressSpace,
   progressAt,
   remainingMs,
   startRound,
   tick,
+  totalRounds,
   type GameState,
 } from './engine'
 import type { Step } from './sequence'
@@ -271,6 +274,65 @@ describe('partida con tiempo (modo canción)', () => {
 
     expect(remainingMs(state, 10_000_000)).toBeNull()
     expect(tick(state, 10_000_000).status).not.toBe('over')
+  })
+})
+
+describe('medición para calibrar', () => {
+  it('separa los tres tipos de miss, porque se arreglan distinto', () => {
+    // 1) Espacio con la secuencia sin terminar.
+    const incompleta = pressSpace(startRound(newGame(), SEQ, DUR, 0), 0.84 * DUR).state
+    expect(incompleta.stats.missIncomplete).toBe(1)
+
+    // 2) Secuencia completa, pero fuera de la ventana.
+    const fuera = pressSpace(typeAll(startRound(newGame(), SEQ, DUR, 0)), 0.2 * DUR).state
+    expect(fuera.stats.missWindow).toBe(1)
+
+    // 3) Se acabó la barra.
+    const vencida = tick(typeAll(startRound(newGame(), SEQ, DUR, 0)), DUR)
+    expect(vencida.stats.missTimeout).toBe(1)
+  })
+
+  it('cuenta aciertos por tipo', () => {
+    let state = playRound(newGame(), AT_PERFECT)
+    state = playRound(state, AT_GOOD)
+
+    expect(state.stats.perfect).toBe(1)
+    expect(state.stats.good).toBe(1)
+    expect(totalRounds(state.stats)).toBe(2)
+  })
+
+  it('mide el desvío en ms contra el centro de PERFECT', () => {
+    // Apretar 0.1 del riel antes del centro con una ronda de 3000ms
+    // son 300ms de anticipación.
+    const early = pressSpace(
+      typeAll(startRound(newGame(), SEQ, DUR, 0)),
+      (PERFECT_CENTER - 0.1) * DUR,
+    ).state
+
+    expect(meanOffsetMs(early.stats)).toBeCloseTo(-0.1 * DUR)
+  })
+
+  it('promedia varios desvíos', () => {
+    let state = playRound(newGame(), PERFECT_CENTER - 0.02)
+    state = playRound(state, PERFECT_CENTER + 0.02)
+
+    // Uno antes y uno después de la misma magnitud: promedio centrado.
+    expect(meanOffsetMs(state.stats)).toBeCloseTo(0)
+  })
+
+  it('NO mide desvío cuando la secuencia quedó incompleta', () => {
+    // Ese momento no habla de precisión, habla de velocidad de dedos.
+    // Mezclarlos ensuciaría la única señal que sirve para mover la ventana.
+    const state = pressSpace(startRound(newGame(), SEQ, DUR, 0), 0.5 * DUR).state
+
+    expect(state.stats.offsetCount).toBe(0)
+    expect(meanOffsetMs(state.stats)).toBeNull()
+  })
+
+  it('tampoco mide desvío cuando se acabó la barra', () => {
+    const state = tick(typeAll(startRound(newGame(), SEQ, DUR, 0)), DUR)
+
+    expect(meanOffsetMs(state.stats)).toBeNull()
   })
 })
 
