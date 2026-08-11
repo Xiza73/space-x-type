@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import { PERFECT_CENTER } from './engine'
 import { TIMING } from './constants'
-import { markerX, railLayout, tileLayout, zoneRect } from './render'
+import { markerX, railLayout, tileLayout, withAlpha } from './render'
 
 const WIDE = { w: 1600, h: 900 }
 const NARROW = { w: 600, h: 800 }
@@ -21,31 +22,35 @@ describe('riel', () => {
   })
 })
 
-describe('zonas de timing', () => {
-  it('dibuja la zona dorada exactamente donde puntúa PERFECT', () => {
-    const rail = railLayout(WIDE.w, WIDE.h)
-    const gold = zoneRect(rail, TIMING.perfectStart, TIMING.perfectEnd)
+describe('ventanas sobre el riel', () => {
+  it('mantiene las cuatro ventanas anidadas y dentro del riel', () => {
+    // El degradado usa estos mismos valores como stops, y `addColorStop` explota
+    // si no vienen en orden creciente. Este test es lo que lo evita.
+    const bounds = [
+      TIMING.badStart,
+      TIMING.goodStart,
+      TIMING.greatStart,
+      TIMING.perfectStart,
+      PERFECT_CENTER,
+      TIMING.perfectEnd,
+      TIMING.greatEnd,
+      TIMING.goodEnd,
+      TIMING.badEnd,
+    ]
 
-    // Si esto falla, la zona que ve el jugador dejó de ser la que suma puntos.
-    expect(gold.x).toBeCloseTo(rail.x + TIMING.perfectStart * rail.width)
-    expect(gold.x + gold.width).toBeCloseTo(rail.x + TIMING.perfectEnd * rail.width)
+    for (let i = 1; i < bounds.length; i++) {
+      expect(bounds[i]).toBeGreaterThan(bounds[i - 1])
+    }
+    expect(bounds[0]).toBeGreaterThanOrEqual(0)
+    expect(bounds[bounds.length - 1]).toBeLessThanOrEqual(1)
   })
+})
 
-  it('mete la zona dorada adentro de la zona cyan', () => {
-    const rail = railLayout(WIDE.w, WIDE.h)
-    const good = zoneRect(rail, TIMING.goodStart, TIMING.goodEnd)
-    const gold = zoneRect(rail, TIMING.perfectStart, TIMING.perfectEnd)
-
-    expect(gold.x).toBeGreaterThan(good.x)
-    expect(gold.x + gold.width).toBeLessThan(good.x + good.width)
-  })
-
-  it('no se sale del riel', () => {
-    const rail = railLayout(NARROW.w, NARROW.h)
-    const good = zoneRect(rail, TIMING.goodStart, TIMING.goodEnd)
-
-    expect(good.x).toBeGreaterThanOrEqual(rail.x)
-    expect(good.x + good.width).toBeLessThanOrEqual(rail.x + rail.width)
+describe('withAlpha', () => {
+  it('convierte el hex del token a rgba para el canvas', () => {
+    expect(withAlpha('#ff2e88', 0.5)).toBe('rgba(255, 46, 136, 0.5)')
+    expect(withAlpha('#000000', 0)).toBe('rgba(0, 0, 0, 0)')
+    expect(withAlpha('#ffffff', 1)).toBe('rgba(255, 255, 255, 1)')
   })
 })
 
@@ -65,13 +70,11 @@ describe('marcador', () => {
     expect(markerX(rail, 7)).toBe(rail.x + rail.width)
   })
 
-  it('cae dentro de la zona dorada justo cuando el juez dice PERFECT', () => {
+  it('cae entre los bordes de PERFECT cuando el juez dice PERFECT', () => {
     const rail = railLayout(WIDE.w, WIDE.h)
-    const gold = zoneRect(rail, TIMING.perfectStart, TIMING.perfectEnd)
-    const x = markerX(rail, (TIMING.perfectStart + TIMING.perfectEnd) / 2)
 
-    expect(x).toBeGreaterThan(gold.x)
-    expect(x).toBeLessThan(gold.x + gold.width)
+    expect(markerX(rail, PERFECT_CENTER)).toBeGreaterThan(markerX(rail, TIMING.perfectStart))
+    expect(markerX(rail, PERFECT_CENTER)).toBeLessThan(markerX(rail, TIMING.perfectEnd))
   })
 })
 

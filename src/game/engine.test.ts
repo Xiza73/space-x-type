@@ -65,21 +65,80 @@ describe('ventanas de timing', () => {
     expect(judge(TIMING.perfectEnd)).toBe('perfect')
   })
 
-  it('degrada a GOOD apenas afuera de PERFECT', () => {
-    expect(judge(TIMING.perfectStart - 0.001)).toBe('good')
-    expect(judge(TIMING.perfectEnd + 0.001)).toBe('good')
+  it('baja un escalón por vez al alejarse del centro', () => {
+    expect(judge(TIMING.perfectStart - 0.001)).toBe('great')
+    expect(judge(TIMING.greatStart - 0.001)).toBe('good')
+    expect(judge(TIMING.goodStart - 0.001)).toBe('bad')
+    expect(judge(TIMING.badStart - 0.001)).toBe('miss')
   })
 
-  it('acepta GOOD en los bordes exactos', () => {
+  it('baja un escalón por vez también del otro lado', () => {
+    expect(judge(TIMING.perfectEnd + 0.001)).toBe('great')
+    expect(judge(TIMING.greatEnd + 0.001)).toBe('good')
+    expect(judge(TIMING.goodEnd + 0.001)).toBe('bad')
+    expect(judge(TIMING.badEnd + 0.001)).toBe('miss')
+  })
+
+  it('acepta cada escalón en sus bordes exactos', () => {
+    expect(judge(TIMING.greatStart)).toBe('great')
+    expect(judge(TIMING.greatEnd)).toBe('great')
     expect(judge(TIMING.goodStart)).toBe('good')
     expect(judge(TIMING.goodEnd)).toBe('good')
+    expect(judge(TIMING.badStart)).toBe('bad')
+    expect(judge(TIMING.badEnd)).toBe('bad')
   })
 
-  it('es MISS afuera de GOOD', () => {
-    expect(judge(TIMING.goodStart - 0.001)).toBe('miss')
-    expect(judge(TIMING.goodEnd + 0.001)).toBe('miss')
+  it('es MISS afuera de todo', () => {
     expect(judge(0)).toBe('miss')
     expect(judge(1)).toBe('miss')
+  })
+
+  it('mantiene las ventanas anidadas', () => {
+    // Si alguien mueve una y rompe el anidado, `judge` empieza a saltear
+    // escalones y el degradado del riel deja de tener sentido.
+    expect(TIMING.badStart).toBeLessThan(TIMING.goodStart)
+    expect(TIMING.goodStart).toBeLessThan(TIMING.greatStart)
+    expect(TIMING.greatStart).toBeLessThan(TIMING.perfectStart)
+    expect(TIMING.perfectEnd).toBeLessThan(TIMING.greatEnd)
+    expect(TIMING.greatEnd).toBeLessThan(TIMING.goodEnd)
+    expect(TIMING.goodEnd).toBeLessThan(TIMING.badEnd)
+  })
+})
+
+describe('qué hace cada escalón', () => {
+  const at = (progress: number, state = newGame()) =>
+    pressSpace(typeAll(startRound(state, SEQ, DUR, 0)), progress * DUR).state
+
+  it('GREAT suma y mantiene el combo', () => {
+    const s = at(TIMING.greatStart)
+    expect(s.lastJudgement).toBe('great')
+    expect(s.score).toBe(SCORING.great)
+    expect(s.combo).toBe(1)
+    expect(s.lives).toBe(3)
+  })
+
+  it('BAD suma poco, NO saca vida, pero corta el combo', () => {
+    // Ese es todo el sentido de BAD: es el aviso antes de empezar a perder.
+    let s = at(TIMING.perfectStart, newGame())
+    s = at(TIMING.badStart, { ...s, status: 'idle' })
+
+    expect(s.lastJudgement).toBe('bad')
+    expect(s.score).toBe(SCORING.perfect + SCORING.bad)
+    expect(s.combo).toBe(0)
+    expect(s.lives).toBe(3)
+  })
+
+  it('BAD no cuenta para la progresión', () => {
+    const s = at(TIMING.badStart)
+    expect(s.hits).toBe(0)
+    expect(s.stats.bad).toBe(1)
+  })
+
+  it('MISS es el único que saca vida', () => {
+    const s = at(0.1)
+    expect(s.lastJudgement).toBe('miss')
+    expect(s.lives).toBe(2)
+    expect(s.hits).toBe(0)
   })
 })
 

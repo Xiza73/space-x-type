@@ -17,13 +17,27 @@
 export const TIMING = {
   perfectStart: 0.795,
   perfectEnd: 0.885,
+  greatStart: 0.755,
+  greatEnd: 0.925,
   goodStart: 0.72,
   goodEnd: 0.96,
+  badStart: 0.67,
+  badEnd: 0.985,
 } as const
 
+/**
+ * Las ventanas están **anidadas**: bad ⊃ good ⊃ great ⊃ perfect, todas
+ * centradas en el mismo punto. `judge` prueba de la más chica a la más grande.
+ *
+ * PERFECT quedó donde estaba a propósito: ya está calibrada y no se toca al
+ * agregar escalones. Lo que antes era GOOD se partió en GREAT y GOOD, y BAD
+ * ganó terreno que antes era MISS.
+ */
 export const SCORING = {
   perfect: 150,
+  great: 100,
   good: 60,
+  bad: 20,
   /** El multiplicador sube de a 1 cada `comboStep` aciertos encadenados. */
   comboStep: 5,
 } as const

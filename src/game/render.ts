@@ -1,10 +1,12 @@
-import { COLORS, FONTS, ZONE_ALPHA } from '../theme/tokens'
+import { COLORS, FONTS } from '../theme/tokens'
 import { TIMING } from './constants'
 import {
   meanOffsetMs,
   multiplierFor,
+  PERFECT_CENTER,
   progressAt,
   remainingMs,
+  totalMisses,
   totalRounds,
   type GameState,
   type Judgement,
@@ -30,16 +32,6 @@ export function railLayout(w: number, h: number): Rect {
   return { x: w / 2 - width / 2, y: h * 0.62, width, height: RAIL_H }
 }
 
-/** Tramo del riel que cubre una ventana de timing, en píxeles. */
-export function zoneRect(rail: Rect, from: number, to: number): Rect {
-  return {
-    x: rail.x + from * rail.width,
-    y: rail.y,
-    width: (to - from) * rail.width,
-    height: rail.height,
-  }
-}
-
 /** Posición del marcador. Recorta fuera de `[0, 1]`: el progreso puede pasarse. */
 export function markerX(rail: Rect, progress: number): number {
   return rail.x + Math.min(1, Math.max(0, progress)) * rail.width
@@ -62,7 +54,9 @@ export function tileLayout(count: number, w: number, h: number): Rect[] {
 /** Texto Y color: un jugador daltónico tiene que poder distinguir la jugada. */
 const JUDGEMENT_LABEL: Record<Judgement, { text: string; color: string }> = {
   perfect: { text: '¡PERFECT!', color: COLORS.gold },
+  great: { text: 'GREAT', color: COLORS.magenta },
   good: { text: 'GOOD', color: COLORS.cyan },
+  bad: { text: 'BAD', color: COLORS.purple },
   miss: { text: 'MISS', color: COLORS.red },
 }
 
@@ -76,12 +70,17 @@ export function draw(canvas: HTMLCanvasElement, state: GameState, nowMs: number)
   ctx.fillStyle = COLORS.night
   ctx.fillRect(0, 0, w, h)
 
+  // Terminada la partida, el gameplay no se dibuja. Antes se tapaba con un
+  // overlay traslúcido y las casillas y el riel se colaban por debajo.
+  if (state.status === 'over') {
+    drawGameOver(ctx, state, w, h)
+    return
+  }
+
   drawHud(ctx, state, nowMs, w)
   drawFeedback(ctx, state, w, h)
   drawSequence(ctx, state, w, h)
   drawRail(ctx, state, nowMs, w, h)
-
-  if (state.status === 'over') drawGameOver(ctx, state, w, h)
 }
 
 /**
@@ -237,8 +236,13 @@ function drawRail(
   ctx.clip()
 
   // Las zonas salen de TIMING: lo que ves es exactamente lo que puntúa.
-  zone(ctx, rail, TIMING.goodStart, TIMING.goodEnd, COLORS.cyan, ZONE_ALPHA.good)
-  zone(ctx, rail, TIMING.perfectStart, TIMING.perfectEnd, COLORS.gold, ZONE_ALPHA.perfect)
+  ctx.fillStyle = zoneGradient(ctx, rail)
+  ctx.fillRect(rail.x, rail.y, rail.width, rail.height)
+
+  // Los bordes de PERFECT sí van marcados: el degradado se ve lindo pero no te
+  // dice dónde empieza exactamente la zona que más suma.
+  edge(ctx, rail, TIMING.perfectStart)
+  edge(ctx, rail, TIMING.perfectEnd)
 
   if (state.status === 'round') {
     ctx.fillStyle = COLORS.magentaLight
@@ -252,29 +256,50 @@ function drawRail(
   ctx.fillText('SECUENCIA  →  ESPACIO EN LA ZONA DORADA', w / 2, rail.y + rail.height + 28)
 }
 
-function zone(
-  ctx: CanvasRenderingContext2D,
-  rail: Rect,
-  from: number,
-  to: number,
-  color: string,
-  alpha: number,
-): void {
-  const { x, y, width, height } = zoneRect(rail, from, to)
+/**
+ * Un degradado continuo en vez de bloques separados por ventana.
+ *
+ * Con cuatro ventanas anidadas, los rectángulos planos se ven como una torta de
+ * capas y no comunican nada: el degradado se lee como un mapa de calor —cuanto
+ * más brillante, más suma— que es exactamente lo que el jugador necesita saber.
+ */
+export function zoneGradient(ctx: CanvasRenderingContext2D, rail: Rect): CanvasGradient {
+  const g = ctx.createLinearGradient(rail.x, 0, rail.x + rail.width, 0)
+  const mid = (a: number, b: number) => (a + b) / 2
 
-  ctx.globalAlpha = alpha
-  ctx.fillStyle = color
-  ctx.fillRect(x, y, width, height)
-  ctx.globalAlpha = 1
+  // Los stops tienen que ir en orden creciente o el navegador tira error.
+  g.addColorStop(0, withAlpha(COLORS.purple, 0))
+  g.addColorStop(TIMING.badStart, withAlpha(COLORS.purple, 0))
+  g.addColorStop(mid(TIMING.badStart, TIMING.goodStart), withAlpha(COLORS.purple, 0.16))
+  g.addColorStop(TIMING.goodStart, withAlpha(COLORS.cyan, 0.2))
+  g.addColorStop(TIMING.greatStart, withAlpha(COLORS.magenta, 0.28))
+  g.addColorStop(TIMING.perfectStart, withAlpha(COLORS.gold, 0.34))
+  g.addColorStop(PERFECT_CENTER, withAlpha(COLORS.gold, 0.52))
+  g.addColorStop(TIMING.perfectEnd, withAlpha(COLORS.gold, 0.34))
+  g.addColorStop(TIMING.greatEnd, withAlpha(COLORS.magenta, 0.28))
+  g.addColorStop(TIMING.goodEnd, withAlpha(COLORS.cyan, 0.2))
+  g.addColorStop(mid(TIMING.goodEnd, TIMING.badEnd), withAlpha(COLORS.purple, 0.16))
+  g.addColorStop(TIMING.badEnd, withAlpha(COLORS.purple, 0))
+  g.addColorStop(1, withAlpha(COLORS.purple, 0))
 
-  ctx.strokeStyle = color
+  return g
+}
+
+/** Marca vertical dorada en un punto del riel. */
+function edge(ctx: CanvasRenderingContext2D, rail: Rect, at: number): void {
+  const x = rail.x + at * rail.width
+  ctx.strokeStyle = withAlpha(COLORS.gold, 0.85)
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.moveTo(x, y)
-  ctx.lineTo(x, y + height)
-  ctx.moveTo(x + width, y)
-  ctx.lineTo(x + width, y + height)
+  ctx.moveTo(x, rail.y)
+  ctx.lineTo(x, rail.y + rail.height)
   ctx.stroke()
+}
+
+/** Los tokens son hex; el canvas necesita alpha por separado. */
+export function withAlpha(hex: string, alpha: number): string {
+  const n = Number.parseInt(hex.slice(1), 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
 }
 
 function drawGameOver(
@@ -283,9 +308,6 @@ function drawGameOver(
   w: number,
   h: number,
 ): void {
-  ctx.fillStyle = 'rgba(11, 11, 18, 0.88)'
-  ctx.fillRect(0, 0, w, h)
-
   ctx.textAlign = 'center'
   ctx.font = `700 48px ${FONTS.display}`
   ctx.fillStyle = COLORS.ink
@@ -336,18 +358,15 @@ function drawStats(
   const y = h * 0.52
 
   const cells = [
-    { name: 'PERFECT', value: `${s.perfect}`, sub: pct(s.perfect), color: COLORS.gold },
-    { name: 'GOOD', value: `${s.good}`, sub: pct(s.good), color: COLORS.cyan },
-    {
-      name: 'MISS',
-      value: `${s.missTimeout + s.missIncomplete + s.missWindow}`,
-      sub: pct(s.missTimeout + s.missIncomplete + s.missWindow),
-      color: COLORS.red,
-    },
-  ]
+    { name: 'PERFECT', n: s.perfect, color: COLORS.gold },
+    { name: 'GREAT', n: s.great, color: COLORS.magenta },
+    { name: 'GOOD', n: s.good, color: COLORS.cyan },
+    { name: 'BAD', n: s.bad, color: COLORS.purple },
+    { name: 'MISS', n: totalMisses(s), color: COLORS.red },
+  ].map((c) => ({ ...c, value: String(c.n), sub: pct(c.n) }))
 
   ctx.textAlign = 'center'
-  const spacing = 160
+  const spacing = Math.min(140, (w - 80) / cells.length)
   let x = w / 2 - (spacing * (cells.length - 1)) / 2
 
   for (const cell of cells) {
