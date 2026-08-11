@@ -12,6 +12,7 @@ import {
   type Judgement,
 } from './engine'
 import { draw } from './render'
+import type { RhythmSource } from './rhythm'
 import type { Step } from './sequence'
 
 export type Loop = {
@@ -23,18 +24,23 @@ export type LoopOptions = {
   canvas: HTMLCanvasElement
   config: GameConfig
   bpm: number
+  /** **Eje 2**: cuánto dura la ronda y cuántas teclas tiene. */
+  rhythm: RhythmSource
   /**
-   * De dónde salen las secuencias. El loop lo llama sin saber si devuelve
-   * flechas o una palabra: eso lo decide quien arma el loop.
+   * **Eje 1**: qué se tipea. El loop lo llama sin saber si devuelve flechas o
+   * una palabra.
    */
-  nextSequence: () => Step[]
+  nextSequence: (length: number) => Step[]
 }
 
 /**
  * El loop del juego. Vive **fuera de React**: corre sobre `requestAnimationFrame`
  * y dibuja en canvas. React lo monta y lo desmonta, nada más.
+ *
+ * Es el único lugar donde los dos ejes se tocan, y se tocan sin conocerse: le
+ * pide el largo al ritmo y se lo pasa a la secuencia.
  */
-export function startGameLoop({ canvas, config, bpm, nextSequence }: LoopOptions): Loop {
+export function startGameLoop({ canvas, config, bpm, rhythm, nextSequence }: LoopOptions): Loop {
   let state = createGame(config)
   let raf = 0
 
@@ -57,7 +63,8 @@ export function startGameLoop({ canvas, config, bpm, nextSequence }: LoopOptions
     }
 
     if (state.status === 'idle') {
-      state = startRound(state, nextSequence(), now)
+      const length = rhythm.sequenceLength(state.hits)
+      state = startRound(state, nextSequence(length), rhythm.roundDurationMs(state.hits), now)
     }
 
     draw(canvas, state, now)

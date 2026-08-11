@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
+import { SONG } from '../../game/constants'
 import { normalizeKey } from '../../game/sequence'
 import { WORDS_EN } from './en'
 import { WORDS_ES } from './es'
+
+const LENGTHS = Array.from(
+  { length: SONG.maxKeys - SONG.minKeys + 1 },
+  (_, i) => SONG.minKeys + i,
+)
 
 /**
  * Las listas son datos escritos a mano, así que la validación va acá y no en la
@@ -25,10 +31,15 @@ describe.each(LISTS)('palabras %s', (_lang, words) => {
     expect(malas).toEqual([])
   })
 
-  it('mantiene todas entre 4 y 7 letras', () => {
-    // La longitud no es palanca de dificultad: la única es la velocidad.
-    const malas = words.filter((w) => w.length < 4 || w.length > 7)
+  it('mantiene todas dentro del rango de teclas del modo canción', () => {
+    const malas = words.filter((w) => w.length < SONG.minKeys || w.length > SONG.maxKeys)
     expect(malas).toEqual([])
+  })
+
+  it.each(LENGTHS)('tiene suficientes palabras de %i letras', (length) => {
+    // El largo ES la dificultad: si falta un escalón, el juego saltea un nivel
+    // o repite la misma palabra una y otra vez.
+    expect(words.filter((w) => w.length === length).length).toBeGreaterThanOrEqual(8)
   })
 
   it('no repite palabras', () => {
