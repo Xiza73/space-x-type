@@ -113,10 +113,12 @@ function drawHud(
 
   // Cada modo muestra la palanca de dificultad que realmente se mueve: en
   // arcade el nivel (la velocidad), en canción la cantidad de teclas.
+  // Las teclas NO van acá: se dibujan pegadas al riel, que es donde el jugador
+  // tiene los ojos. Un dato que hay que percibir de inmediato no puede obligar
+  // a mirar al otro extremo de la pantalla.
   if (remaining === null) {
     cells.push({ label: 'NIVEL', value: String(state.level), color: COLORS.gold })
   } else {
-    cells.push({ label: 'TECLAS', value: String(state.sequence.length), color: COLORS.flare })
     cells.push({ label: 'TIEMPO', value: formatClock(remaining), color: COLORS.gold })
   }
 
@@ -330,10 +332,48 @@ function drawRail(
   }
   ctx.restore()
 
+  // El contador de teclas va pegado al riel, en el recorrido natural de la
+  // vista entre las casillas y el marcador.
+  if (state.config.durationMs !== null) {
+    drawKeyCount(ctx, state.sequence.length, w, rail.y - 16)
+  }
+
   ctx.textAlign = 'center'
   ctx.font = `700 12px ${FONTS.ui}`
   ctx.fillStyle = COLORS.inkMuted
-  ctx.fillText('SECUENCIA  →  ESPACIO EN LA ZONA DORADA', w / 2, rail.y + rail.height + 28)
+  ctx.fillText('SECUENCIA  →  ESPACIO O ENTER EN LA ZONA CLARA', w / 2, rail.y + rail.height + 28)
+}
+
+/** `TECLAS n` centrado justo arriba del riel. */
+function drawKeyCount(
+  ctx: CanvasRenderingContext2D,
+  count: number,
+  w: number,
+  y: number,
+): void {
+  const text = String(count)
+  const gap = 10
+
+  ctx.textAlign = 'left'
+  ctx.font = `700 11px ${FONTS.ui}`
+  ctx.letterSpacing = '3px'
+  const labelWidth = ctx.measureText('TECLAS').width
+  ctx.letterSpacing = '0px'
+
+  ctx.font = `700 24px ${FONTS.display}`
+  const valueWidth = ctx.measureText(text).width
+
+  const x = w / 2 - (labelWidth + gap + valueWidth) / 2
+
+  ctx.font = `700 11px ${FONTS.ui}`
+  ctx.letterSpacing = '3px'
+  ctx.fillStyle = COLORS.inkMuted
+  ctx.fillText('TECLAS', x, y)
+  ctx.letterSpacing = '0px'
+
+  ctx.font = `700 24px ${FONTS.display}`
+  ctx.fillStyle = COLORS.flare
+  ctx.fillText(text, x + labelWidth + gap, y + 1)
 }
 
 /**
