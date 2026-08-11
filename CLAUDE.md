@@ -64,6 +64,7 @@ reasignación de teclas, móvil.
 | Persistencia | **JSON en el directorio de datos de la app** | Biblioteca personal. Sin base de datos |
 | Runtime / package manager | **Bun** | Instalación y scripts. Sin `npm` ni `pnpm` |
 | Tests | **Vitest** (front) + **`cargo test`** (core) | Cada lado en su lenguaje |
+| Lint | **oxlint** | Viene con el template de Vite. Sin ESLint |
 | Bundler | **Vite** | Estándar de Tauri v2 |
 
 **Requisito externo:** `yt-dlp` debe estar en el `PATH`.
@@ -75,8 +76,8 @@ bun install               # instalar dependencias
 bun run tauri dev         # dev — app + hot reload
 bun run tauri build       # build de producción (binario nativo)
 bun run test              # tests del frontend (Vitest)
-bun run typecheck         # tsc --noEmit
-bun run lint              # ESLint
+bun run typecheck         # tsc -b (project references)
+bun run lint              # oxlint
 cargo test  --manifest-path src-tauri/Cargo.toml    # tests del core Rust
 cargo clippy --manifest-path src-tauri/Cargo.toml   # lint del core Rust
 cargo fmt   --manifest-path src-tauri/Cargo.toml    # formato Rust

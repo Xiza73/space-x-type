@@ -15,6 +15,8 @@
       "Bash(bun test:*)",
       "Bash(bunx tsc:*)",
       "Bash(bunx vitest:*)",
+      "Bash(bunx oxlint:*)",
+      "Bash(cargo metadata:*)",
       "Bash(cargo test:*)",
       "Bash(cargo check:*)",
       "Bash(cargo clippy:*)",
