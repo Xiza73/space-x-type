@@ -1,4 +1,6 @@
 mod commands;
+mod jsonstore;
+mod library;
 mod scores;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -16,7 +18,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::load_scores,
-            commands::save_score
+            commands::save_score,
+            commands::process_song,
+            commands::list_songs,
+            commands::delete_song
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

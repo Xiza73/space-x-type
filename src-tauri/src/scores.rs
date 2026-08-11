@@ -3,7 +3,6 @@
 //! Dominio puro más lectura/escritura en disco. Los comandos de Tauri viven en
 //! `commands.rs` y solo validan y delegan acá.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -22,10 +21,8 @@ const FALLBACK_NAME: &str = "PLAYER";
 pub enum ScoreError {
     #[error("no se pudo resolver el directorio de datos de la app")]
     NoDataDir,
-    #[error("error de disco: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("no se pudo serializar el ranking: {0}")]
-    Encode(#[from] serde_json::Error),
+    #[error(transparent)]
+    Store(#[from] crate::jsonstore::StoreError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,44 +108,21 @@ pub fn board_path(data_dir: &Path) -> PathBuf {
     data_dir.join("scores.json")
 }
 
-/// Lee el ranking del disco.
-///
-/// Si el archivo no existe todavía, arranca vacío. Si está corrupto **no se
-/// descarta en silencio**: se respalda a `scores.corrupt.json` y se sigue con
-/// una tabla nueva. Perder puntajes sin avisar es peor que perderlos.
+/// Lee el ranking del disco. La atomicidad y el respaldo de corruptos viven en
+/// `jsonstore`, compartidos con la biblioteca: es una garantía de integridad de
+/// datos y no puede estar implementada dos veces distinto.
 pub fn read_board(path: &Path) -> Result<Board, ScoreError> {
-    let raw = match fs::read_to_string(path) {
-        Ok(raw) => raw,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Board::default()),
-        Err(e) => return Err(e.into()),
-    };
-
-    match serde_json::from_str::<Board>(&raw) {
-        Ok(board) => Ok(board),
-        Err(_) => {
-            let _ = fs::rename(path, path.with_extension("corrupt.json"));
-            Ok(Board::default())
-        }
-    }
+    Ok(crate::jsonstore::read_or_default(path)?)
 }
 
-/// Escribe el ranking de forma **atómica**: temporal y después rename.
-///
-/// Escribir en el lugar deja el archivo ilegible si el proceso muere a mitad
-/// de camino, y ahí perdés todos los puntajes de una.
 pub fn write_board(path: &Path, board: &Board) -> Result<(), ScoreError> {
-    if let Some(dir) = path.parent() {
-        fs::create_dir_all(dir)?;
-    }
-
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, serde_json::to_string_pretty(board)?)?;
-    fs::rename(&tmp, path)?;
-    Ok(())
+    Ok(crate::jsonstore::write_atomic(path, board)?)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
 
     fn entry(name: &str, score: u32, mode: &str, at: u64) -> Entry {
