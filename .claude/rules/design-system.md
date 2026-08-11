@@ -1,4 +1,4 @@
-# Sistema de diseño — CROMA//BEAT
+# Sistema de diseño — SPACE x TYPE
 
 Extraído del prototipo de referencia (`design/`, **no versionado**). Esta es la fuente de
 verdad del estilo: si el prototipo se pierde, esto queda.

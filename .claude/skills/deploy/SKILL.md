@@ -3,7 +3,7 @@ name: deploy
 description: Proceso de release de la app de escritorio Tauri — gate de calidad, versionado sincronizado en tres archivos, merge dev→master, tag semver y generación de binarios por plataforma. Usar al cortar una versión, subir el número de versión o preparar la distribución de binarios.
 ---
 
-# Deploy — space-type-rythm
+# Deploy — SPACE x TYPE
 
 App de escritorio: **no hay servidor, no hay rollback remoto**. Una vez que un binario está
 en la máquina de alguien, está. Por eso el gate va antes, no después.

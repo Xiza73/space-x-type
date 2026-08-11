@@ -3,7 +3,7 @@ name: security-review
 description: Revisión de seguridad para una app Tauri que ejecuta un binario externo (yt-dlp) con input del usuario. Cubre inyección de comandos, validación de URLs, permisos/capabilities de Tauri, escritura en el filesystem y CSP del WebView. Usar al tocar comandos de Tauri, el pipeline de descarga de audio, rutas de archivos, o antes de un release.
 ---
 
-# Security review — space-type-rythm
+# Security review — SPACE x TYPE
 
 La app es de uso personal y offline, así que **no** hay superficie de red entrante, ni auth,
 ni datos de terceros. La superficie real es otra, y es más grande de lo que parece:

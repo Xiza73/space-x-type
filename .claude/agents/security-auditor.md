@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 
-Sos auditor de seguridad de **space-type-rythm**: app de escritorio Tauri v2, uso personal,
+Sos auditor de seguridad de **SPACE x TYPE**: app de escritorio Tauri v2, uso personal,
 offline.
 
 ## El modelo de amenaza real

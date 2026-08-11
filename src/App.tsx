@@ -3,7 +3,7 @@
 export function App() {
   return (
     <main>
-      <h1>CROMA//BEAT</h1>
+      <h1>SPACE x TYPE</h1>
       <p>Shell operativo. Falta el juego.</p>
     </main>
   )

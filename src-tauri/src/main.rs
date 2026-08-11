@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    croma_beat_lib::run();
+    space_x_type_lib::run();
 }

@@ -1,4 +1,4 @@
-# space-type-rythm
+# SPACE x TYPE
 
 ## Contexto del proyecto
 
@@ -9,7 +9,9 @@ ventana de timing correcta.
 
 Diferencias con el original: sin baile, sin avatares, sin social. Entrás y jugás.
 
-Nombre de producto: **CROMA//BEAT**.
+Nombre de producto: **SPACE x TYPE**. La "x" se lee como cruce: es literalmente lo que hace
+el juego — tipo de secuencia × fuente del ritmo. El prototipo de referencia se llamaba
+`CROMA//BEAT`; ese nombre quedó descartado.
 
 Cuatro aportes propios:
 
