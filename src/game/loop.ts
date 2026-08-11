@@ -12,22 +12,29 @@ import {
   type Judgement,
 } from './engine'
 import { draw } from './render'
-import { makeArrowSequence } from './sequence'
+import type { Step } from './sequence'
 
 export type Loop = {
   stop(): void
   handleKey(rawKey: string): void
 }
 
+export type LoopOptions = {
+  canvas: HTMLCanvasElement
+  config: GameConfig
+  bpm: number
+  /**
+   * De dónde salen las secuencias. El loop lo llama sin saber si devuelve
+   * flechas o una palabra: eso lo decide quien arma el loop.
+   */
+  nextSequence: () => Step[]
+}
+
 /**
  * El loop del juego. Vive **fuera de React**: corre sobre `requestAnimationFrame`
  * y dibuja en canvas. React lo monta y lo desmonta, nada más.
  */
-export function startGameLoop(
-  canvas: HTMLCanvasElement,
-  config: GameConfig,
-  bpm: number,
-): Loop {
+export function startGameLoop({ canvas, config, bpm, nextSequence }: LoopOptions): Loop {
   let state = createGame(config)
   let raf = 0
 
@@ -50,7 +57,7 @@ export function startGameLoop(
     }
 
     if (state.status === 'idle') {
-      state = startRound(state, makeArrowSequence(), now)
+      state = startRound(state, nextSequence(), now)
     }
 
     draw(canvas, state, now)

@@ -1,3 +1,5 @@
+import { WORDS_EN } from '../data/words/en'
+import { WORDS_ES } from '../data/words/es'
 import { ROUND } from './constants'
 
 /**
@@ -55,9 +57,42 @@ export function makeArrowSequence(
   length: number = ROUND.arrowCount,
   random: () => number = Math.random,
 ): Step[] {
-  return Array.from({ length }, () => {
-    // El clamp cubre un `random` inyectado que devuelva exactamente 1.
-    const i = Math.min(ARROWS.length - 1, Math.floor(random() * ARROWS.length))
-    return ARROWS[i]
-  })
+  return Array.from({ length }, () => pick(ARROWS, random))
+}
+
+/**
+ * Una palabra al azar, letra por letra.
+ *
+ * Sin `dir`, así que el render las dibuja como texto en vez de vector. Esa es
+ * toda la diferencia con las flechas del lado del dibujo.
+ */
+export function makeWordSequence(
+  words: readonly string[],
+  random: () => number = Math.random,
+): Step[] {
+  return [...pick(words, random)].map((char) => ({ key: char, glyph: char }))
+}
+
+export type SequenceType = 'arrows' | 'words'
+export type Language = 'es' | 'en'
+
+const WORDS: Record<Language, readonly string[]> = { es: WORDS_ES, en: WORDS_EN }
+
+/**
+ * Arma el proveedor de secuencias del modo elegido.
+ *
+ * Este es el **eje 1** (qué se tipea) completo. El eje 2 (de dónde sale el
+ * ritmo) no aparece por ningún lado acá, y no tiene que aparecer: el loop llama
+ * a esta función sin saber qué devuelve, y el motor recibe el resultado como
+ * dato. Si alguna vez necesitás preguntar por el modo dentro del motor, los
+ * ejes se mezclaron.
+ */
+export function sequenceProvider(type: SequenceType, language: Language): () => Step[] {
+  if (type === 'arrows') return () => makeArrowSequence()
+  return () => makeWordSequence(WORDS[language])
+}
+
+/** El clamp cubre un `random` inyectado que devuelva exactamente 1. */
+function pick<T>(items: readonly T[], random: () => number): T {
+  return items[Math.min(items.length - 1, Math.floor(random() * items.length))]
 }
