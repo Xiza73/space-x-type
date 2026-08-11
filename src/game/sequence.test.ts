@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
+import { WORDS_EN } from '../data/words/en'
+import { WORDS_ES } from '../data/words/es'
 import { ROUND } from './constants'
-import { ARROWS, makeArrowSequence, normalizeKey } from './sequence'
+import {
+  ARROWS,
+  makeArrowSequence,
+  makeWordSequence,
+  normalizeKey,
+  sequenceProvider,
+} from './sequence'
 
 /** Reloj de azar falso: devuelve los valores dados, en orden. */
 function fakeRandom(values: readonly number[]): () => number {
@@ -59,5 +67,64 @@ describe('makeArrowSequence', () => {
     const seq = makeArrowSequence(1, () => 1)
 
     expect(seq[0]).toBe(ARROWS[ARROWS.length - 1])
+  })
+})
+
+describe('makeWordSequence', () => {
+  const WORDS = ['RITMO', 'NEON'] as const
+
+  it('parte la palabra letra por letra', () => {
+    const seq = makeWordSequence(WORDS, () => 0)
+
+    expect(seq.map((s) => s.glyph).join('')).toBe('RITMO')
+    expect(seq).toHaveLength(5)
+  })
+
+  it('usa la letra como tecla, que es lo que devuelve normalizeKey', () => {
+    for (const step of makeWordSequence(WORDS, () => 0)) {
+      expect(step.key).toBe(normalizeKey(step.glyph))
+    }
+  })
+
+  it('no marca dirección: las palabras se dibujan como texto, no como vector', () => {
+    expect(makeWordSequence(WORDS, () => 0).every((s) => s.dir === undefined)).toBe(true)
+  })
+
+  it('es determinista con un random inyectado', () => {
+    expect(makeWordSequence(WORDS, () => 0.99).map((s) => s.glyph).join('')).toBe('NEON')
+  })
+
+  it('no se sale del rango si random devuelve 1', () => {
+    expect(makeWordSequence(WORDS, () => 1).map((s) => s.glyph).join('')).toBe('NEON')
+  })
+})
+
+describe('sequenceProvider', () => {
+  it('en modo flechas entrega flechas vectoriales', () => {
+    const steps = sequenceProvider('arrows', 'es')()
+
+    expect(steps).toHaveLength(ROUND.arrowCount)
+    expect(steps.every((s) => s.dir !== undefined)).toBe(true)
+  })
+
+  it('en modo palabras entrega una palabra del idioma elegido', () => {
+    const es = sequenceProvider('words', 'es')()
+    const en = sequenceProvider('words', 'en')()
+
+    expect(WORDS_ES).toContain(es.map((s) => s.glyph).join(''))
+    expect(WORDS_EN).toContain(en.map((s) => s.glyph).join(''))
+  })
+
+  it('entrega secuencias tipeables en los tres casos', () => {
+    const providers = [
+      sequenceProvider('arrows', 'es'),
+      sequenceProvider('words', 'es'),
+      sequenceProvider('words', 'en'),
+    ]
+    for (const next of providers) {
+      for (const step of next()) {
+        expect(normalizeKey(step.key)).toBe(step.key)
+      }
+    }
   })
 })
