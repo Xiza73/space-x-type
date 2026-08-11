@@ -73,8 +73,31 @@ La información va en la **luminancia**, no en el matiz, y eso es deliberado:
 - Con cuatro ventanas anidadas, pintar cada una de su color las convierte en una torta de
   capas que no comunica nada.
 
-Medido: el brillo cae de forma **monótona** de 234 en el centro a 26 en el borde de `BAD`.
-No hay marcas de borde: la rampa misma señala dónde está el centro.
+El brillo cae de forma **monótona** desde el centro hasta el borde de `BAD`. No hay marcas
+de borde: la rampa misma señala dónde está el centro.
+
+## La escalera de dificultad
+
+En modo canción, arriba del riel va una escalera de un escalón por cada largo posible de
+secuencia (`SONG.minKeys` a `SONG.maxKeys`). Alturas crecientes de izquierda a derecha; se
+prenden los alcanzados y el actual brilla.
+
+**No lleva texto, y es a propósito.** Un `TECLAS 6` da el número, pero el número no es el
+dato: lo que el jugador necesita percibir de un vistazo es *dónde está en la curva* —si
+viene subiendo, si está cerca del techo, si acaba de reiniciar—. La forma ascendente dice
+"esto se pone más difícil" sin una palabra, y la cantidad exacta ya está a la vista en las
+casillas.
+
+## Dónde va cada cosa
+
+Esta es la regla que ordena el HUD:
+
+> **Lo que usás para decidir va cerca de donde mirás. Lo que usás para saber cómo vas puede
+> estar lejos.**
+
+Durante la partida los ojos van de las casillas al marcador. La escalera de dificultad vive
+ahí, entre las dos. El puntaje, el combo y el tiempo van arriba: son contexto, no
+información de acción.
 
 ## Tipografía
 

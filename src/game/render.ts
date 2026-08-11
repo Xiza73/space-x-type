@@ -1,5 +1,5 @@
 import { COLORS, FONTS } from '../theme/tokens'
-import { TIMING } from './constants'
+import { SONG, TIMING } from './constants'
 import {
   multiplierFor,
   PERFECT_CENTER,
@@ -332,10 +332,10 @@ function drawRail(
   }
   ctx.restore()
 
-  // El contador de teclas va pegado al riel, en el recorrido natural de la
+  // El medidor de dificultad va pegado al riel, en el recorrido natural de la
   // vista entre las casillas y el marcador.
   if (state.config.durationMs !== null) {
-    drawKeyCount(ctx, state.sequence.length, w, rail.y - 16)
+    drawDifficultyMeter(ctx, state.sequence.length, w, rail.y - 14)
   }
 
   ctx.textAlign = 'center'
@@ -344,36 +344,53 @@ function drawRail(
   ctx.fillText('SECUENCIA  →  ESPACIO O ENTER EN LA ZONA CLARA', w / 2, rail.y + rail.height + 28)
 }
 
-/** `TECLAS n` centrado justo arriba del riel. */
-function drawKeyCount(
+const METER_BAR_W = 9
+const METER_GAP = 5
+const METER_MIN_H = 7
+const METER_MAX_H = 21
+
+/**
+ * Escalera de dificultad: un escalón por cada largo posible de secuencia, de
+ * `minKeys` a `maxKeys`. Se prenden los alcanzados y el actual brilla.
+ *
+ * Reemplaza a un `TECLAS 6` porque el número no es el dato que hace falta. Lo
+ * que el jugador necesita percibir de un vistazo es **dónde está en la curva**:
+ * si viene subiendo, si está cerca del techo, si acaba de reiniciar. La forma
+ * ascendente dice "esto se pone más difícil" sin una sola palabra, y la cantidad
+ * exacta ya está a la vista en las casillas.
+ */
+function drawDifficultyMeter(
   ctx: CanvasRenderingContext2D,
   count: number,
   w: number,
-  y: number,
+  bottomY: number,
 ): void {
-  const text = String(count)
-  const gap = 10
+  const steps = SONG.maxKeys - SONG.minKeys + 1
+  const current = Math.min(steps - 1, Math.max(0, count - SONG.minKeys))
+  const totalW = steps * METER_BAR_W + (steps - 1) * METER_GAP
+  let x = w / 2 - totalW / 2
 
-  ctx.textAlign = 'left'
-  ctx.font = `700 11px ${FONTS.ui}`
-  ctx.letterSpacing = '3px'
-  const labelWidth = ctx.measureText('TECLAS').width
-  ctx.letterSpacing = '0px'
+  for (let i = 0; i < steps; i++) {
+    const height = METER_MIN_H + ((METER_MAX_H - METER_MIN_H) * i) / (steps - 1)
 
-  ctx.font = `700 24px ${FONTS.display}`
-  const valueWidth = ctx.measureText(text).width
+    ctx.beginPath()
+    ctx.roundRect(x, bottomY - height, METER_BAR_W, height, 3)
 
-  const x = w / 2 - (labelWidth + gap + valueWidth) / 2
+    if (i === current) {
+      ctx.save()
+      ctx.shadowColor = withAlpha(COLORS.flare, 0.85)
+      ctx.shadowBlur = 14
+      ctx.fillStyle = COLORS.flare
+      ctx.fill()
+      ctx.restore()
+    } else {
+      ctx.fillStyle =
+        i < current ? withAlpha(COLORS.flare, 0.4) : withAlpha(COLORS.line, 0.75)
+      ctx.fill()
+    }
 
-  ctx.font = `700 11px ${FONTS.ui}`
-  ctx.letterSpacing = '3px'
-  ctx.fillStyle = COLORS.inkMuted
-  ctx.fillText('TECLAS', x, y)
-  ctx.letterSpacing = '0px'
-
-  ctx.font = `700 24px ${FONTS.display}`
-  ctx.fillStyle = COLORS.flare
-  ctx.fillText(text, x + labelWidth + gap, y + 1)
+    x += METER_BAR_W + METER_GAP
+  }
 }
 
 /**
