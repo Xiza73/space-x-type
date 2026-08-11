@@ -39,6 +39,21 @@ export function deleteSong(id: string): Promise<void> {
   return invoke<void>('delete_song', { id })
 }
 
+export type Beatmap = {
+  version: number
+  bpm: number
+  /** Dónde cae el primer beat, en ms desde el arranque del audio. */
+  firstBeatMs: number
+  durationMs: number
+  beatsPerRound: number
+  /** Derivado del BPM y los beats por ronda. */
+  roundDurationMs: number
+}
+
+export function songBeatmap(id: string): Promise<Beatmap> {
+  return invoke<Beatmap>('song_beatmap', { id })
+}
+
 export function formatDuration(seconds: number): string {
   if (seconds <= 0) return '—'
   const total = Math.round(seconds)

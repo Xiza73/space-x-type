@@ -21,7 +21,8 @@ pub fn run() {
             commands::save_score,
             commands::process_song,
             commands::list_songs,
-            commands::delete_song
+            commands::delete_song,
+            commands::song_beatmap
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

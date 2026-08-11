@@ -27,6 +27,10 @@ pub enum LibraryError {
     OutsideDataDir,
     #[error("no se pudo descargar el audio")]
     Download,
+    #[error("no se pudo analizar el audio")]
+    Analysis,
+    #[error("esa canción no está en la biblioteca")]
+    NotFound,
     #[error("yt-dlp no está en el PATH")]
     YtDlpMissing,
     #[error("error de disco: {0}")]
@@ -77,6 +81,10 @@ pub fn song_dir(data_dir: &Path, id: &str) -> PathBuf {
 
 pub fn audio_stem() -> &'static str {
     AUDIO_STEM
+}
+
+pub fn beatmap_path(data_dir: &Path, id: &str) -> PathBuf {
+    song_dir(data_dir, id).join(super::analysis::BEATMAP_FILE)
 }
 
 /// Segunda barrera contra path traversal, sobre la ruta ya canonicalizada.
