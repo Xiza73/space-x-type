@@ -100,7 +100,14 @@ export type KeyResult = 'advance' | 'reset' | 'ignored'
 export type Status = 'idle' | 'round' | 'resolved' | 'over'
 
 export type GameConfig = {
-  lives: number
+  /**
+   * Vidas iniciales, o `null` si el modo no tiene vidas.
+   *
+   * En canción **no hay vidas**: la partida dura lo que dura la canción y punto.
+   * Cortarla antes por fallar sería sacar al jugador de la canción a la mitad,
+   * que es justo lo contrario de lo que hace un juego de ritmo.
+   */
+  lives: number | null
   /** Cuánto dura la partida. `null` = hasta quedarse sin vidas (arcade). */
   durationMs: number | null
 }
@@ -162,7 +169,7 @@ export function createGame(config: GameConfig): GameState {
     score: 0,
     combo: 0,
     maxCombo: 0,
-    lives: config.lives,
+    lives: config.lives ?? 0,
     hits: 0,
     level: 1,
     sequence: [],
@@ -226,12 +233,13 @@ function resolve(
   const rule = RULES[judgement]
   const combo = rule.keepsCombo ? state.combo + 1 : 0
   const hits = rule.counts ? state.hits + 1 : state.hits
-  const lives = rule.costsLife ? state.lives - 1 : state.lives
+  const hasLives = state.config.lives !== null
+  const lives = rule.costsLife && hasLives ? state.lives - 1 : state.lives
   const gained = rule.score
 
   return {
     ...state,
-    status: lives <= 0 ? 'over' : 'resolved',
+    status: hasLives && lives <= 0 ? 'over' : 'resolved',
     score: state.score + gained * mult,
     combo,
     maxCombo: Math.max(state.maxCombo, combo),

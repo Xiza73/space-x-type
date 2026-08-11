@@ -84,6 +84,18 @@ export const ROUND = {
   interRoundPauseMs: 700,
 } as const
 
+/**
+ * Teclas que confirman la secuencia.
+ *
+ * ESPACIO y ENTER valen las dos. En modo palabras las manos están sobre las
+ * letras y estirarse hasta la barra rompe el tipeo; ENTER queda al lado del
+ * meñique derecho. En flechas pasa lo mismo al revés.
+ *
+ * El input se lee de acá, no con comparaciones de strings desparramadas: el día
+ * que se puedan reasignar teclas, se cambia un solo lugar.
+ */
+export const CONFIRM_KEYS: readonly string[] = [' ', 'Enter']
+
 export const DEFAULTS = {
   lives: 3,
   bpm: 132,

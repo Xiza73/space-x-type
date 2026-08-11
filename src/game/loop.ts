@@ -1,5 +1,6 @@
 import { startChiptune, stopChiptune } from '../audio/chiptune'
 import { nowMs } from '../audio/context'
+import { CONFIRM_KEYS } from './constants'
 import { sfxBad, sfxGood, sfxGreat, sfxKey, sfxMiss, sfxPerfect, sfxWrong } from '../audio/sfx'
 import {
   createGame,
@@ -97,7 +98,7 @@ export function startGameLoop({
     // Terminada la partida manda la pantalla de resultados, que es React.
     if (state.status === 'over') return
 
-    if (rawKey === ' ') {
+    if (CONFIRM_KEYS.includes(rawKey)) {
       const { state: next, judgement } = pressSpace(state, nowMs())
       state = next
       if (judgement !== null) playJudgement(judgement)

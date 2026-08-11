@@ -102,34 +102,42 @@ function drawHud(
   nowMs: number,
   w: number,
 ): void {
+  const remaining = remainingMs(state, nowMs)
+  const hasLives = state.config.lives !== null
+
   const cells: { label: string; value: string; color: string }[] = [
     { label: 'SCORE', value: String(state.score), color: COLORS.ink },
     { label: 'COMBO', value: String(state.combo), color: COLORS.magenta },
     { label: 'MULT', value: `x${multiplierFor(state.combo)}`, color: COLORS.cyan },
   ]
 
-  const spacing = 150
-  const totalW = spacing * (cells.length + 1)
-  let x = w / 2 - totalW / 2 + spacing / 2
+  // Cada modo muestra la palanca de dificultad que realmente se mueve: en
+  // arcade el nivel (la velocidad), en canción la cantidad de teclas.
+  if (remaining === null) {
+    cells.push({ label: 'NIVEL', value: String(state.level), color: COLORS.gold })
+  } else {
+    cells.push({ label: 'TECLAS', value: String(state.sequence.length), color: COLORS.flare })
+    cells.push({ label: 'TIEMPO', value: formatClock(remaining), color: COLORS.gold })
+  }
+
+  const slots = cells.length + (hasLives ? 1 : 0)
+  const spacing = Math.min(150, (w - 80) / slots)
+  let x = w / 2 - (spacing * (slots - 1)) / 2
 
   ctx.textAlign = 'center'
   for (const cell of cells) {
     label(ctx, cell.label, x, 40)
+    ctx.textAlign = 'center'
     ctx.font = `700 30px ${FONTS.display}`
     ctx.fillStyle = cell.color
     ctx.fillText(cell.value, x, 74)
     x += spacing
   }
 
-  // En arcade la referencia es el nivel; en canción, cuánto queda de partida.
-  const remaining = remainingMs(state, nowMs)
-  label(
-    ctx,
-    remaining === null ? `NIVEL ${state.level}` : `TIEMPO ${formatClock(remaining)}`,
-    x,
-    40,
-  )
-  drawHearts(ctx, state, x, 74)
+  if (hasLives) {
+    label(ctx, 'VIDAS', x, 40)
+    drawHearts(ctx, state, x, 74)
+  }
 }
 
 function formatClock(ms: number): string {
@@ -143,7 +151,7 @@ function drawHearts(
   centerX: number,
   y: number,
 ): void {
-  const total = state.config.lives
+  const total = state.config.lives ?? 0
   ctx.font = `22px ${FONTS.ui}`
   ctx.textAlign = 'center'
 
@@ -191,7 +199,10 @@ function drawSequence(
 
     const step = state.sequence[i]
     if (step.dir === undefined) {
-      ctx.font = `700 30px ${FONTS.display}`
+      // Chakra Petch y no Bungee: Bungee es un display muy pesado y sus letras
+      // sueltas se confunden entre sí. Acá la letra hay que leerla de un vistazo
+      // y tipearla bien, así que manda la legibilidad.
+      ctx.font = `700 34px ${FONTS.ui}`
       ctx.lineJoin = 'round'
       ctx.lineWidth = 6
       ctx.strokeStyle = skin.outline

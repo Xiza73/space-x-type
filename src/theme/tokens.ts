@@ -32,7 +32,7 @@ export const COLORS = {
   /** Selección, multiplicador, puntaje, GOOD. */
   cyan: '#29e5ff',
   /** Núcleo de la zona de acierto en el riel. */
-  flare: '#e8fbff',
+  flare: '#7dffdd',
   /** La zona objetivo y PERFECT. El color de "acá tenés que apretar". */
   gold: '#ffd23e',
   goldLight: '#ffe27a',

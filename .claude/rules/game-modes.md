@@ -97,7 +97,10 @@ vidas. Un `miss` que llega sin advertencia se siente injusto.
 
 - Tecla **incorrecta** → la secuencia se reinicia (`idx = 0`), suena un error. **No se pierde
   vida.** El castigo es el tiempo perdido, que ya es suficiente.
-- **ESPACIO con la secuencia incompleta** → `MISS` directo.
+- Se confirma con **ESPACIO o ENTER**, las dos valen (`CONFIRM_KEYS`). En palabras las manos
+  están sobre las letras y estirarse hasta la barra rompe el tipeo; ENTER queda al lado del
+  meñique. En flechas pasa lo mismo al revés.
+- **Confirmar con la secuencia incompleta** → `MISS` directo.
 - Cada tecla correcta sube de tono (`440 * 1.12^i`): da feedback de progreso sin mirar.
 
 ### Progresión
@@ -116,9 +119,14 @@ es fija y la única palanca es **cuántas teclas** tiene la secuencia.
 ```
 teclas       min + (floor(aciertos / hitsPerKeyStep) mod (max - min + 1))
              piso 3 · techo 8 · sube cada 3 aciertos
-partida      dura un tiempo fijo, no hasta quedarse sin vidas
+partida      dura un tiempo fijo
+vidas        NINGUNA — `config.lives = null`
 velocidad    fija; en la simulada la elige el jugador, en la real la pone el beatmap
 ```
+
+**En canción no hay vidas.** No es un descuido: cortar la partida a la mitad por fallar es
+sacar al jugador de la canción, que es exactamente lo contrario de lo que hace el género.
+Se falla, se pierde combo y puntaje, y se sigue hasta el final.
 
 La curva es un **diente de sierra**: sube de a una tecla hasta el techo y vuelve al piso.
 Volver al piso es deliberado — da respiro y hace que la partida se sienta como una canción

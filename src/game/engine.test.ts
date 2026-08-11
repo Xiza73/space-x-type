@@ -32,7 +32,7 @@ const AT_PERFECT = 0.84
 /** Progreso dentro de GOOD pero fuera de PERFECT. */
 const AT_GOOD = 0.75
 
-function newGame(lives = 3, durationMs: number | null = null): GameState {
+function newGame(lives: number | null = 3, durationMs: number | null = null): GameState {
   return createGame({ lives, durationMs })
 }
 
@@ -326,6 +326,23 @@ describe('partida con tiempo (modo canción)', () => {
     expect(next.status).toBe('over')
     // No es un miss: la canción terminó, no la ronda.
     expect(next.lives).toBe(3)
+  })
+
+  it('sin vidas, fallar no corta la partida', () => {
+    // La canción dura lo que dura. Cortarla a la mitad por fallar es sacar al
+    // jugador de la canción, que es lo contrario de lo que hace el género.
+    let state = newGame(null, TOTAL)
+    for (let i = 0; i < 20; i++) {
+      state = startRound({ ...state, status: 'idle' }, SEQ, DUR, 0)
+      state = pressSpace(state, 0.1 * DUR).state
+    }
+
+    expect(state.stats.missIncomplete).toBe(20)
+    expect(state.status).not.toBe('over')
+  })
+
+  it('sin vidas, el HUD no tiene nada que dibujar', () => {
+    expect(newGame(null, TOTAL).config.lives).toBeNull()
   })
 
   it('en arcade no termina nunca por tiempo', () => {
