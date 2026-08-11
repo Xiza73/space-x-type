@@ -9,16 +9,24 @@ ventana de timing correcta.
 
 Diferencias con el original: sin baile, sin avatares, sin social. Entrás y jugás.
 
-Dos aportes propios:
+Nombre de producto: **CROMA//BEAT**.
 
-1. **Modo palabras** — además de secuencias de flechas, la secuencia puede ser una palabra
+Cuatro aportes propios:
+
+1. **Modo arcade** — sin canción: música chiptune generada con osciladores, vidas, y la barra
+   que se acelera con cada nivel. Es el modo que valida toda la mecánica.
+2. **Modo palabras** — además de secuencias de flechas, la secuencia puede ser una palabra
    real en español o inglés (bibliotecas de palabras embebidas).
-2. **Procesador musical** — le pasás una URL de YouTube, el sistema descarga el audio,
+3. **Procesador musical** — le pasás una URL de YouTube, el sistema descarga el audio,
    detecta BPM/onsets y genera un beatmap que dura toda la partida. El fondo puede ser el
    video original con baja opacidad o visuales psicodélicos generativos.
-3. **Biblioteca personal** — cada canción procesada se guarda en el disco. Al entrar,
+4. **Biblioteca personal** — cada canción procesada se guarda en el disco. Al entrar,
    elegís una de tu biblioteca o procesás una nueva. Procesar es una operación de **una sola
    vez** por canción, no un paso previo a cada partida.
+
+Tipo de secuencia (flechas/palabras) y fuente del ritmo (arcade/canción) son **ejes
+ortogonales**: 2×2 = 4 combinaciones, las cuatro dentro del MVP. Detalle en
+`@.claude/rules/game-modes.md`.
 
 **Uso personal.** No hay usuarios externos ni distribución pública del contenido musical.
 
@@ -26,16 +34,20 @@ Dos aportes propios:
 
 Usuario objetivo: el autor. Un jugador, offline, en su propia máquina.
 
-MVP — en este orden:
+El MVP cubre **los cuatro modos** (flechas/palabras × arcade/canción). Orden de construcción:
 
-1. Loop de gameplay con **flechas** (↑↓←→) sobre barra que avanza + confirmación con espacio.
-2. Ventanas de timing y scoring (perfect / good / miss) con combo.
-3. **Modo palabras** (es/en) reusando el mismo motor de secuencias.
-4. Pipeline de audio: URL de YouTube → `yt-dlp` → archivo local → BPM → beatmap.
-5. **Biblioteca personal**: persistir la canción procesada y poder elegirla al entrar.
-6. Fondo psicodélico en canvas. El video de YouTube como fondo queda para después.
+1. **Arcade + flechas** — loop completo: barra, ventanas de timing, scoring, combo,
+   multiplicador, vidas, aceleración por nivel, chiptune procedural. Punto de validación.
+2. **Arcade + palabras** — mismo motor, otro generador de secuencias (es/en).
+3. Pipeline de audio: URL de YouTube → `yt-dlp` → archivo local → BPM → beatmap.
+4. **Biblioteca personal**: persistir la canción procesada y poder elegirla al entrar.
+5. **Canción + flechas** y **canción + palabras** — el beatmap reemplaza al generador
+   procedural. El motor no cambia.
+6. Fondos: metálico (default) y psicodélico. El video de YouTube de fondo queda para después.
+7. Ranking local top 5.
 
-**Fuera del MVP:** multijugador, cuentas, leaderboards online, editor de beatmaps, móvil.
+**Fuera del MVP:** multijugador, cuentas, leaderboards online, editor de beatmaps,
+reasignación de teclas, móvil.
 
 ## Stack y herramientas
 
@@ -76,36 +88,11 @@ cargo fmt   --manifest-path src-tauri/Cargo.toml    # formato Rust
 Gate antes de commitear: `bun run typecheck && bun run lint && bun run test` y, si tocaste
 Rust, `cargo clippy` + `cargo test`.
 
-## Convenciones de código
+## Reglas detalladas
 
-**TypeScript**
-- `strict: true`. Nada de `any` — si no sabés el tipo, `unknown` y estrechá.
-- Tipos derivados, no duplicados: `type X = typeof algo` antes de reescribir a mano.
-- Sin default exports salvo que la herramienta lo exija.
-
-**React**
-- React 19 con compiler: **no** metas `useMemo`/`useCallback` a mano.
-- Container / presentational: el componente que sabe *de dónde* vienen los datos no es el
-  que sabe *cómo* se ven.
-- El game loop **no vive en React**. Corre en un módulo propio con `rAF` y solo publica
-  snapshots al store.
-
-**Timing (crítico)**
-- El reloj maestro es **`audioContext.currentTime`**. Nunca `Date.now()` ni `performance.now()`
-  para lógica de juego — derivan del audio y arruinan la sincronía.
-- Las ventanas de timing se expresan en **milisegundos**, en un solo módulo de constantes.
-
-**Rust**
-- Errores con `Result` + `thiserror`. Nada de `unwrap()` en código que corre en producción.
-- Los comandos de Tauri son finos: validan y delegan a un módulo de dominio testeable.
-
-**Nombres**
-- Archivos: `kebab-case.ts`. Componentes React: `PascalCase`. Tipos: `PascalCase`.
-- Módulos Rust: `snake_case`.
-
-**Tests**
-- Se testea la lógica: scoring, ventanas de timing, generación de secuencias, parseo de
-  beatmaps. No se testea el canvas pixel a pixel.
+@.claude/rules/code-style.md
+@.claude/rules/game-modes.md
+@.claude/rules/design-system.md
 
 ## Estructura del repositorio
 
@@ -114,18 +101,28 @@ Single-package (no monorepo): un frontend + un core Rust, versionados juntos.
 ```
 ├── src/                      # frontend (React + TS)
 │   ├── game/                 # motor: loop, timing, scoring, input — SIN React
-│   ├── audio/                # Web Audio, reloj maestro, reproducción
+│   │   └── constants.ts      # ventanas, scoring, progresión — TODO junto
+│   ├── audio/                # Web Audio, reloj maestro, chiptune procedural
 │   ├── library/              # tipos y cliente de la biblioteca personal
 │   ├── components/           # UI React (menús, HUD, settings)
 │   ├── stores/               # Zustand
+│   ├── theme/                # tokens de color y tipografía (UI + canvas)
+│   ├── assets/fonts/         # Bungee, Chakra Petch — embebidas, sin CDN
 │   └── data/words/           # bibliotecas de palabras es/en
 ├── src-tauri/                # core Rust
 │   ├── src/commands/         # comandos expuestos al frontend
 │   ├── src/audio/            # yt-dlp, decodificación, detección de BPM
 │   ├── src/library/          # índice, lectura/escritura, integridad
 │   └── tauri.conf.json
-└── .claude/                  # commands, skills, agents
+├── design/                   # prototipo de referencia — NO versionado
+└── .claude/
+    ├── rules/                # convenciones, modos de juego, sistema de diseño
+    ├── commands/  skills/  agents/
 ```
+
+`design/` es material de referencia local y está en `.gitignore`. **Lo que importa de ahí ya
+está extraído a `.claude/rules/`** — si necesitás la paleta o las constantes del prototipo,
+están ahí, versionadas.
 
 ## Integraciones externas
 

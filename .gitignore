@@ -16,6 +16,9 @@ dist-ssr/
 src-tauri/target/
 src-tauri/gen/
 
+# Referencia de diseño — local, no se trackea
+design/
+
 # Assets generados / caché local
 *.local
 audio-cache/
