@@ -6,16 +6,25 @@ import { ROUND } from './constants'
  * `key` es un token ya normalizado, no una tecla cruda del teclado.
  * Gracias a eso el motor compara sin saber si está jugando flechas o palabras.
  */
+export type ArrowDirection = 'left' | 'up' | 'down' | 'right'
+
 export type Step = {
   key: string
   glyph: string
+  /**
+   * Si está presente, el paso se dibuja como una flecha vectorial en vez de
+   * texto. No es capricho: el subconjunto `latin` de Bungee tiene `↑` y `↓`
+   * pero NO `←` ni `→`, así que dibujarlas como glifos daría dos tipografías
+   * distintas en la misma fila, y cuál depende del sistema operativo.
+   */
+  dir?: ArrowDirection
 }
 
 export const ARROWS = [
-  { key: 'ArrowLeft', glyph: '←' },
-  { key: 'ArrowUp', glyph: '↑' },
-  { key: 'ArrowDown', glyph: '↓' },
-  { key: 'ArrowRight', glyph: '→' },
+  { key: 'ArrowLeft', glyph: '←', dir: 'left' },
+  { key: 'ArrowUp', glyph: '↑', dir: 'up' },
+  { key: 'ArrowDown', glyph: '↓', dir: 'down' },
+  { key: 'ArrowRight', glyph: '→', dir: 'right' },
 ] as const satisfies readonly Step[]
 
 export type ArrowKey = (typeof ARROWS)[number]['key']

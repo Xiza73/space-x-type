@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
@@ -6,7 +7,7 @@ const host = process.env.TAURI_DEV_HOST
 
 // https://v2.tauri.app/start/frontend/vite/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
 
   // Tauri necesita el output de Vite intacto para reportar sus propios errores.
   clearScreen: false,

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { DEFAULTS } from '../game/constants'
 import { startGameLoop } from '../game/loop'
+import { Overlays } from './Overlays'
 
 export function GameCanvas() {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -29,5 +30,10 @@ export function GameCanvas() {
     }
   }, [])
 
-  return <canvas ref={ref} className="stage" />
+  return (
+    <>
+      <canvas ref={ref} className="block h-screen w-screen" />
+      <Overlays />
+    </>
+  )
 }

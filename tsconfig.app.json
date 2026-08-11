@@ -4,7 +4,10 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    // "node" es para los tests, que corren en Node: `tokens.test.ts` lee
+    // index.css con node:fs. El plugin de Tailwind se come los imports `?raw`
+    // de CSS y devuelve string vacío, así que leer el archivo es la vía.
+    "types": ["vite/client", "node"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 

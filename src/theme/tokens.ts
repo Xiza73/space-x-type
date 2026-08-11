@@ -1,25 +1,29 @@
 /**
- * Tokens de color y tipografía. Fuente de verdad ÚNICA: la lee el canvas del
- * gameplay y la va a leer la UI de React. Dos paletas que se desincronizan es
- * un bug garantizado.
+ * Espejo en TypeScript de los tokens de `src/index.css`, para el canvas del
+ * gameplay — que no puede usar clases de Tailwind.
  *
- * Detalle y significado de cada acento en `.claude/rules/design-system.md`.
+ * Las claves son el camelCase de las variables CSS: `--color-magenta-light`
+ * es `magentaLight`. `tokens.test.ts` compara los dos archivos y falla si
+ * divergen. Dos paletas desincronizadas es un bug garantizado, así que en vez
+ * de confiar en la disciplina hay una prueba.
  */
 
 export const COLORS = {
-  bg: '#0b0b12',
+  night: '#0b0b12',
   surface: '#1c1c2a',
-  surfaceSunken: '#15151f',
+  surfaceDeep: '#13131d',
+  sunken: '#15151f',
   track: '#191924',
-  tileIdle: '#232336',
+  trackDeep: '#101018',
+  tile: '#232336',
 
-  border: '#3a3d56',
-  borderCard: '#33364e',
-  borderMuted: '#2c2f45',
+  line: '#3a3d56',
+  lineCard: '#33364e',
+  lineMuted: '#2c2f45',
 
-  text: '#e8eaf6',
-  textSecondary: '#aab0cf',
-  textMuted: '#8b8fae',
+  ink: '#e8eaf6',
+  inkSoft: '#aab0cf',
+  inkMuted: '#8b8fae',
 
   /** Acción, combo, acierto, vidas. */
   magenta: '#ff2e88',
@@ -29,17 +33,15 @@ export const COLORS = {
   cyan: '#29e5ff',
   /** La zona objetivo y PERFECT. El color de "acá tenés que apretar". */
   gold: '#ffd23e',
+  goldLight: '#ffe27a',
+  goldDark: '#ffc21e',
   /** MISS. */
   red: '#ff4d6d',
   /** Solo fondo psicodélico. */
   purple: '#8b5cff',
 } as const
 
-/**
- * ponytail: Bungee y Chakra Petch todavía no están embebidas, así que por ahora
- * cae al fallback del sistema. Al meter las fuentes en `src/assets/fonts/` esto
- * empieza a andar sin tocar nada más.
- */
+/** Espejo de `--font-display` / `--font-ui`. Se declaran en `src/index.css`. */
 export const FONTS = {
   display: "'Bungee', system-ui, sans-serif",
   ui: "'Chakra Petch', system-ui, sans-serif",
