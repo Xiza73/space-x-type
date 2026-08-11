@@ -16,6 +16,9 @@ Dos aportes propios:
 2. **Procesador musical** — le pasás una URL de YouTube, el sistema descarga el audio,
    detecta BPM/onsets y genera un beatmap que dura toda la partida. El fondo puede ser el
    video original con baja opacidad o visuales psicodélicos generativos.
+3. **Biblioteca personal** — cada canción procesada se guarda en el disco. Al entrar,
+   elegís una de tu biblioteca o procesás una nueva. Procesar es una operación de **una sola
+   vez** por canción, no un paso previo a cada partida.
 
 **Uso personal.** No hay usuarios externos ni distribución pública del contenido musical.
 
@@ -28,8 +31,9 @@ MVP — en este orden:
 1. Loop de gameplay con **flechas** (↑↓←→) sobre barra que avanza + confirmación con espacio.
 2. Ventanas de timing y scoring (perfect / good / miss) con combo.
 3. **Modo palabras** (es/en) reusando el mismo motor de secuencias.
-4. Pipeline de audio: URL de YouTube → `yt-dlp` → archivo local → BPM → beatmap cacheado.
-5. Fondo psicodélico en canvas. El video de YouTube como fondo queda para después.
+4. Pipeline de audio: URL de YouTube → `yt-dlp` → archivo local → BPM → beatmap.
+5. **Biblioteca personal**: persistir la canción procesada y poder elegirla al entrar.
+6. Fondo psicodélico en canvas. El video de YouTube como fondo queda para después.
 
 **Fuera del MVP:** multijugador, cuentas, leaderboards online, editor de beatmaps, móvil.
 
@@ -44,7 +48,9 @@ MVP — en este orden:
 | Estado | **Zustand 5** | Estado de UI/sesión. El estado del loop vive fuera de React |
 | Estilos | **Tailwind CSS 4** | Solo UI, no gameplay |
 | Audio | **Web Audio API** | Reproducción y reloj maestro |
-| Análisis BPM | Rust (crate de detección de onsets) | Offline, una sola vez por canción, cacheado en JSON |
+| Análisis BPM | Rust (crate de detección de onsets) | Offline, una sola vez por canción |
+| Persistencia | **JSON en el directorio de datos de la app** | Biblioteca personal. Sin base de datos |
+| Runtime / package manager | **Bun** | Instalación y scripts. Sin `npm` ni `pnpm` |
 | Tests | **Vitest** (front) + **`cargo test`** (core) | Cada lado en su lenguaje |
 | Bundler | **Vite** | Estándar de Tauri v2 |
 
@@ -53,19 +59,22 @@ MVP — en este orden:
 ## Comandos clave
 
 ```bash
-pnpm install              # instalar dependencias
-pnpm tauri dev            # dev — app + hot reload
-pnpm tauri build          # build de producción (binario nativo)
-pnpm test                 # tests del frontend (Vitest)
-pnpm typecheck            # tsc --noEmit
-pnpm lint                 # ESLint
+bun install               # instalar dependencias
+bun run tauri dev         # dev — app + hot reload
+bun run tauri build       # build de producción (binario nativo)
+bun run test              # tests del frontend (Vitest)
+bun run typecheck         # tsc --noEmit
+bun run lint              # ESLint
 cargo test  --manifest-path src-tauri/Cargo.toml    # tests del core Rust
 cargo clippy --manifest-path src-tauri/Cargo.toml   # lint del core Rust
 cargo fmt   --manifest-path src-tauri/Cargo.toml    # formato Rust
 ```
 
-Gate antes de commitear: `pnpm typecheck && pnpm lint && pnpm test` y, si tocaste Rust,
-`cargo clippy` + `cargo test`.
+**Bun es el único package manager.** Nada de `npm` ni `pnpm`: no se commitea
+`package-lock.json` ni `pnpm-lock.yaml`, solo `bun.lock`.
+
+Gate antes de commitear: `bun run typecheck && bun run lint && bun run test` y, si tocaste
+Rust, `cargo clippy` + `cargo test`.
 
 ## Convenciones de código
 
@@ -106,12 +115,14 @@ Single-package (no monorepo): un frontend + un core Rust, versionados juntos.
 ├── src/                      # frontend (React + TS)
 │   ├── game/                 # motor: loop, timing, scoring, input — SIN React
 │   ├── audio/                # Web Audio, reloj maestro, reproducción
+│   ├── library/              # tipos y cliente de la biblioteca personal
 │   ├── components/           # UI React (menús, HUD, settings)
 │   ├── stores/               # Zustand
 │   └── data/words/           # bibliotecas de palabras es/en
 ├── src-tauri/                # core Rust
 │   ├── src/commands/         # comandos expuestos al frontend
 │   ├── src/audio/            # yt-dlp, decodificación, detección de BPM
+│   ├── src/library/          # índice, lectura/escritura, integridad
 │   └── tauri.conf.json
 └── .claude/                  # commands, skills, agents
 ```
@@ -122,8 +133,38 @@ Single-package (no monorepo): un frontend + un core Rust, versionados juntos.
 |---|---|---|
 | **YouTube** vía `yt-dlp` | Descargar audio de una URL para analizar y reproducir | Binario externo, no una API. Requiere `yt-dlp` en el `PATH` |
 
-Sin base de datos, sin auth, sin pagos, sin backend. Todo es local: el caché de beatmaps y
-el audio descargado viven en el directorio de datos de la app.
+Sin auth, sin pagos, sin backend. Todo es local.
+
+## Biblioteca personal (persistencia)
+
+Cada canción procesada se guarda en el **directorio de datos de la app** (`app_data_dir`).
+Procesar es una operación de **una sola vez**: si la URL ya está en la biblioteca, se reusa.
+
+```
+<app_data_dir>/
+├── library.json           # índice: id, título, duración, bpm, url, fechas, mejor score
+└── songs/<id>/
+    ├── audio.<ext>        # audio descargado por yt-dlp
+    ├── beatmap.json       # onsets, bpm, secuencias generadas
+    └── cover.jpg          # miniatura (opcional)
+```
+
+Reglas:
+
+- **`<id>` es el ID del video de YouTube, sanitizado.** Nunca el título — un título puede
+  traer `../`, separadores de ruta o nombres reservados de Windows. Ese id es también la
+  clave de deduplicación.
+- `library.json` es un **índice**, no la fuente de verdad del contenido. Si una entrada
+  apunta a una carpeta que no existe, se marca como rota y se ofrece reprocesar. No se
+  asume que el disco está intacto.
+- La escritura del índice es **atómica**: se escribe a un temporal y se renombra. Un corte
+  a mitad de escritura no puede dejar la biblioteca ilegible.
+- El esquema de `library.json` lleva un campo `version` desde el día uno. Migrar después es
+  mucho más caro que preverlo ahora.
+- Borrar una canción borra la carpeta **y** la entrada del índice.
+
+Sin base de datos. Un índice JSON alcanza para una biblioteca personal de decenas o
+centenares de canciones; se evalúa SQLite recién si el escaneo lineal llega a molestar.
 
 ## Reglas de trabajo con Claude
 

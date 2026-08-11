@@ -1,7 +1,7 @@
 ---
 description: Pasos de release — gate de calidad, versionado, build de binarios y tag
 argument-hint: "[major|minor|patch — por defecto patch]"
-allowed-tools: Read, Edit, Bash(git status:*), Bash(git log:*), Bash(git diff:*), Bash(pnpm test:*), Bash(pnpm lint:*), Bash(pnpm typecheck:*), Bash(cargo test:*), Bash(cargo clippy:*)
+allowed-tools: Read, Edit, Bash(git status:*), Bash(git log:*), Bash(git diff:*), Bash(bun run test:*), Bash(bun run lint:*), Bash(bun run typecheck:*), Bash(cargo test:*), Bash(cargo clippy:*)
 ---
 
 Preparar un release `$ARGUMENTS` (si está vacío: `patch`).
@@ -18,9 +18,9 @@ versión y generar los binarios nativos.
 ## 1. Gate de calidad — todo verde o no hay release
 
 ```bash
-pnpm typecheck
-pnpm lint
-pnpm test
+bun run typecheck
+bun run lint
+bun run test
 cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 cargo test   --manifest-path src-tauri/Cargo.toml
 ```
@@ -54,7 +54,7 @@ git push origin v<X.Y.Z>
 que corra:
 
 ```bash
-pnpm tauri build
+bun run tauri build
 ```
 
 Salida en `src-tauri/target/release/bundle/`. Recordá que **solo se generan binarios para

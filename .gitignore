@@ -5,6 +5,11 @@ CLAUDE.local.md
 # Dependencias
 node_modules/
 
+# Solo bun.lock se commitea — el resto de lockfiles no deberían existir
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
 # Build
 dist/
 dist-ssr/

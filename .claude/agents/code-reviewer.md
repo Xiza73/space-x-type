@@ -47,6 +47,16 @@ devuelven `undefined` implícito en una rama.
 contexto, comandos de Tauri gordos con lógica que debería estar en un módulo testeable,
 bloqueo del hilo async con trabajo pesado de CPU.
 
+### 6. Biblioteca personal — pérdida de datos
+La biblioteca es estado que el usuario acumula: romperla no es cosmético.
+
+- Escritura de `library.json` **no atómica** (sin temporal + rename).
+- Se asume que el disco está intacto: entrada del índice sin carpeta, o carpeta sin entrada,
+  tratadas como imposibles en vez de manejadas.
+- Falta el campo `version` del esquema, o se lee un esquema desconocido sin respaldarlo.
+- Rutas de borrado que no se derivan de un id ya validado.
+- Reprocesar una URL que ya está en la biblioteca en vez de reusarla.
+
 ### 6. Simplicidad
 Abstracción con una sola implementación. Dependencia nueva que la stdlib o una API nativa ya
 resolvía. Config para un valor que nunca cambia. Código muerto. Scaffolding "para después".

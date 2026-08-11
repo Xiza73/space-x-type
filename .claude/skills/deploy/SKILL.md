@@ -18,9 +18,9 @@ en la máquina de alguien, está. Por eso el gate va antes, no después.
 Todo verde, sin excepciones:
 
 ```bash
-pnpm typecheck
-pnpm lint
-pnpm test
+bun run typecheck
+bun run lint
+bun run test
 cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 cargo test   --manifest-path src-tauri/Cargo.toml
 ```
@@ -42,6 +42,10 @@ SemVer: `fix` → patch · `feat` → minor · breaking → major.
 
 Commit: `chore(release): v<X.Y.Z>`
 
+**Además:** si cambió el esquema de `library.json`, subí su campo `version` y verificá que
+exista el camino de migración. Una biblioteca que el usuario ya llenó **no se rompe ni se
+descarta** — se migra.
+
 ## 3. Merge y tag
 
 Según `git-flow`: PR `dev` → `master`, merge `--no-ff`. Nunca squash, nunca rebase.
@@ -54,7 +58,7 @@ git push origin v<X.Y.Z>
 ## 4. Binarios
 
 ```bash
-pnpm tauri build
+bun run tauri build
 ```
 
 Lo corre **el usuario**, no el agente (CLAUDE.md prohíbe correr builds, y además tarda).
@@ -74,8 +78,12 @@ objetivo = tres máquinas, o CI con matriz de OS. No hay atajo por acá.
 
 - El binario arranca en una máquina limpia (sin toolchain de desarrollo instalado).
 - La app **falla con un mensaje claro** si `yt-dlp` no está en el `PATH`. No con un crash.
-- El caché de audio se escribe en el directorio de datos de la app, no en el cwd.
-- Una canción se descarga, analiza y reproduce de punta a punta.
+- La biblioteca se escribe en el directorio de datos de la app, **no en el cwd**.
+- Una canción se descarga, analiza, **se guarda en la biblioteca** y se reproduce de punta
+  a punta.
+- Cerrar y reabrir la app: la biblioteca sigue ahí y las canciones son jugables.
+- **Actualizar desde la versión anterior no borra la biblioteca existente.** Probalo con una
+  biblioteca real, no vacía — es el bug de release más caro y el más fácil de no ver.
 
 ## Deuda conocida
 
