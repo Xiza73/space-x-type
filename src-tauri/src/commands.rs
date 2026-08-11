@@ -6,7 +6,43 @@
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 
+use crate::library::{self, LibraryError, Processed, SongStatus};
 use crate::scores::{self, Entry, ScoreError};
+
+fn data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map_err(|_| "no se pudo resolver el directorio de datos de la app".to_string())
+}
+
+/// El detalle del error va al log; al usuario le llega el mensaje y nada más.
+fn library_message(error: LibraryError) -> String {
+    log::error!("biblioteca: {error}");
+    error.to_string()
+}
+
+#[tauri::command]
+pub async fn process_song(app: AppHandle, url: String) -> Result<Processed, String> {
+    let dir = data_dir(&app)?;
+    // La descarga tarda decenas de segundos: va a un hilo bloqueante para no
+    // trabar el runtime async de Tauri.
+    tauri::async_runtime::spawn_blocking(move || library::process(&dir, &url))
+        .await
+        .map_err(|_| "la descarga se interrumpió".to_string())?
+        .map_err(library_message)
+}
+
+#[tauri::command]
+pub fn list_songs(app: AppHandle) -> Result<Vec<SongStatus>, String> {
+    let dir = data_dir(&app)?;
+    library::list(&dir).map_err(library_message)
+}
+
+#[tauri::command]
+pub fn delete_song(app: AppHandle, id: String) -> Result<(), String> {
+    let dir = data_dir(&app)?;
+    library::delete(&dir, &id).map_err(library_message)
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

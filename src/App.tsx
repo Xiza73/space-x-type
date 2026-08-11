@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { resumeAudio } from './audio/context'
 import { GameCanvas, type RhythmMode, type SpeedId } from './components/GameCanvas'
 import { Overlays } from './components/Overlays'
+import { SongLibrary } from './components/SongLibrary'
 import { Toggle } from './components/Toggle'
 import { DEFAULTS, SPEED_PRESETS } from './game/constants'
 import type { Language, SequenceType } from './game/sequence'
@@ -34,7 +35,11 @@ export function App() {
   useEffect(() => {
     if (started) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Enter') void start()
+      if (event.key !== 'Enter') return
+      // Con el foco en un campo, ENTER es de ese campo. Si no, arrancaría la
+      // partida al confirmar la URL de la biblioteca.
+      if (event.target instanceof HTMLInputElement) return
+      void start()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -114,6 +119,8 @@ export function App() {
             />
           )}
         </div>
+
+        {rhythmMode === 'song' && <SongLibrary />}
 
         <button
           onClick={() => void start()}
