@@ -1,6 +1,47 @@
 @import 'tailwindcss';
 
 /**
+ * Fuentes embebidas. La app es de escritorio y tiene que andar sin internet,
+ * y además la CSP no permite orígenes remotos: nada de Google Fonts por CDN.
+ *
+ * Solo el subconjunto `latin` (cubre español e inglés completos, tildes y ñ
+ * incluidas). Sin `unicode-range` a propósito: se envía un archivo por variante,
+ * así que el navegador puede caer al sistema glifo por glifo cuando la fuente
+ * no tiene el carácter.
+ */
+@font-face {
+  font-family: 'Bungee';
+  src: url('./assets/fonts/bungee-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('./assets/fonts/chakra-petch-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('./assets/fonts/chakra-petch-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('./assets/fonts/chakra-petch-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/**
  * Tokens de diseño. Fuente de verdad de la UI.
  *
  * `src/theme/tokens.ts` es el espejo de esta paleta para el canvas, que no puede
@@ -45,9 +86,8 @@
   --color-red: #ff4d6d;
   --color-purple: #8b5cff;
 
-  /* ponytail: Bungee y Chakra Petch todavía no están embebidas — cae al
-     fallback del sistema. Al dejar los .woff2 en src/assets/fonts/ y agregar
-     los @font-face, esto empieza a andar sin tocar nada más. */
+  /* El fallback no es decorativo: `latin` no trae flechas, así que los glifos
+     ←→↑↓ salen del sistema aunque el resto sea Bungee. */
   --font-display: 'Bungee', system-ui, sans-serif;
   --font-ui: 'Chakra Petch', system-ui, sans-serif;
 }

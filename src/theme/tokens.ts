@@ -41,6 +41,7 @@ export const COLORS = {
   purple: '#8b5cff',
 } as const
 
+/** Espejo de `--font-display` / `--font-ui`. Se declaran en `src/index.css`. */
 export const FONTS = {
   display: "'Bungee', system-ui, sans-serif",
   ui: "'Chakra Petch', system-ui, sans-serif",

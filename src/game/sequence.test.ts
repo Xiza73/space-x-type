@@ -29,6 +29,14 @@ describe('normalizeKey', () => {
   })
 })
 
+describe('flechas', () => {
+  it('todas traen dirección, para dibujarse como vector y no como glifo', () => {
+    // Sin esto, ← y → salen de una fuente distinta que ↑ y ↓: el subconjunto
+    // latin de Bungee no las tiene.
+    expect(ARROWS.map((a) => a.dir)).toEqual(['left', 'up', 'down', 'right'])
+  })
+})
+
 describe('makeArrowSequence', () => {
   it('genera 5 flechas por defecto', () => {
     expect(makeArrowSequence()).toHaveLength(ROUND.arrowCount)

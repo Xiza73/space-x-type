@@ -1,6 +1,7 @@
 import { COLORS, FONTS, ZONE_ALPHA } from '../theme/tokens'
 import { TIMING } from './constants'
 import { multiplierFor, progressAt, type GameState, type Judgement } from './engine'
+import type { ArrowDirection } from './sequence'
 
 const RAIL_MAX_W = 720
 const RAIL_W_RATIO = 0.86
@@ -173,9 +174,18 @@ function drawSequence(
     ctx.strokeStyle = done ? COLORS.magenta : current ? COLORS.cyan : COLORS.line
     ctx.stroke()
 
-    ctx.font = `32px ${FONTS.display}`
-    ctx.fillStyle = done || current ? COLORS.ink : COLORS.inkMuted
-    ctx.fillText(state.sequence[i].glyph, tile.x + tile.width / 2, tile.y + tile.height / 2 + 2)
+    const step = state.sequence[i]
+    const cx = tile.x + tile.width / 2
+    const cy = tile.y + tile.height / 2
+    const fg = done || current ? COLORS.ink : COLORS.inkMuted
+
+    if (step.dir === undefined) {
+      ctx.font = `32px ${FONTS.display}`
+      ctx.fillStyle = fg
+      ctx.fillText(step.glyph, cx, cy + 2)
+    } else {
+      drawArrow(ctx, step.dir, cx, cy, 32, fg)
+    }
   })
 
   ctx.textBaseline = 'alphabetic'
@@ -278,6 +288,49 @@ function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number
   ctx.letterSpacing = '3px'
   ctx.fillText(text, x, y)
   ctx.letterSpacing = '0px'
+}
+
+const ARROW_ANGLE: Record<ArrowDirection, number> = {
+  right: 0,
+  down: Math.PI / 2,
+  left: Math.PI,
+  up: -Math.PI / 2,
+}
+
+/**
+ * Flecha vectorial: cabeza triangular más un vástago rectangular.
+ *
+ * Se dibuja apuntando a la derecha y se rota. Así las cuatro son idénticas
+ * salvo el ángulo — con glifos de fuente cada una traía su propio peso óptico.
+ */
+function drawArrow(
+  ctx: CanvasRenderingContext2D,
+  dir: ArrowDirection,
+  cx: number,
+  cy: number,
+  size: number,
+  color: string,
+): void {
+  const s = size / 2
+  const stem = s * 0.42
+
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.rotate(ARROW_ANGLE[dir])
+  ctx.fillStyle = color
+
+  ctx.beginPath()
+  ctx.moveTo(s, 0)
+  ctx.lineTo(0, -s)
+  ctx.lineTo(0, -stem)
+  ctx.lineTo(-s, -stem)
+  ctx.lineTo(-s, stem)
+  ctx.lineTo(0, stem)
+  ctx.lineTo(0, s)
+  ctx.closePath()
+  ctx.fill()
+
+  ctx.restore()
 }
 
 function roundedRect(
