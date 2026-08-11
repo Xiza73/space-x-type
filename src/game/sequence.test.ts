@@ -71,45 +71,60 @@ describe('makeArrowSequence', () => {
 })
 
 describe('makeWordSequence', () => {
-  const WORDS = ['RITMO', 'NEON'] as const
+  const WORDS = ['SOL', 'RITMO', 'ESTRELLA'] as const
+  const text = (steps: readonly { glyph: string }[]) => steps.map((s) => s.glyph).join('')
 
   it('parte la palabra letra por letra', () => {
-    const seq = makeWordSequence(WORDS, () => 0)
+    const seq = makeWordSequence(WORDS, 5, () => 0)
 
-    expect(seq.map((s) => s.glyph).join('')).toBe('RITMO')
+    expect(text(seq)).toBe('RITMO')
     expect(seq).toHaveLength(5)
   })
 
+  it('elige por longitud: el largo ES la dificultad', () => {
+    expect(text(makeWordSequence(WORDS, 3, () => 0))).toBe('SOL')
+    expect(text(makeWordSequence(WORDS, 8, () => 0))).toBe('ESTRELLA')
+  })
+
+  it('cae a la longitud más cercana cuando no hay exacta', () => {
+    // Un hueco en la lista no puede tumbar la partida.
+    expect(text(makeWordSequence(WORDS, 4, () => 0))).toBe('SOL')
+    expect(text(makeWordSequence(WORDS, 7, () => 0))).toBe('ESTRELLA')
+  })
+
   it('usa la letra como tecla, que es lo que devuelve normalizeKey', () => {
-    for (const step of makeWordSequence(WORDS, () => 0)) {
+    for (const step of makeWordSequence(WORDS, 5, () => 0)) {
       expect(step.key).toBe(normalizeKey(step.glyph))
     }
   })
 
   it('no marca dirección: las palabras se dibujan como texto, no como vector', () => {
-    expect(makeWordSequence(WORDS, () => 0).every((s) => s.dir === undefined)).toBe(true)
-  })
-
-  it('es determinista con un random inyectado', () => {
-    expect(makeWordSequence(WORDS, () => 0.99).map((s) => s.glyph).join('')).toBe('NEON')
+    expect(makeWordSequence(WORDS, 5, () => 0).every((s) => s.dir === undefined)).toBe(true)
   })
 
   it('no se sale del rango si random devuelve 1', () => {
-    expect(makeWordSequence(WORDS, () => 1).map((s) => s.glyph).join('')).toBe('NEON')
+    expect(text(makeWordSequence(['UNO', 'DOS'], 3, () => 1))).toBe('DOS')
   })
 })
 
 describe('sequenceProvider', () => {
-  it('en modo flechas entrega flechas vectoriales', () => {
-    const steps = sequenceProvider('arrows', 'es')()
+  it('respeta el largo pedido en los dos modos', () => {
+    for (const length of [3, 5, 8]) {
+      expect(sequenceProvider('arrows', 'es')(length)).toHaveLength(length)
+      expect(sequenceProvider('words', 'es')(length)).toHaveLength(length)
+      expect(sequenceProvider('words', 'en')(length)).toHaveLength(length)
+    }
+  })
 
-    expect(steps).toHaveLength(ROUND.arrowCount)
+  it('en modo flechas entrega flechas vectoriales', () => {
+    const steps = sequenceProvider('arrows', 'es')(ROUND.arrowCount)
+
     expect(steps.every((s) => s.dir !== undefined)).toBe(true)
   })
 
   it('en modo palabras entrega una palabra del idioma elegido', () => {
-    const es = sequenceProvider('words', 'es')()
-    const en = sequenceProvider('words', 'en')()
+    const es = sequenceProvider('words', 'es')(5)
+    const en = sequenceProvider('words', 'en')(5)
 
     expect(WORDS_ES).toContain(es.map((s) => s.glyph).join(''))
     expect(WORDS_EN).toContain(en.map((s) => s.glyph).join(''))
@@ -122,7 +137,7 @@ describe('sequenceProvider', () => {
       sequenceProvider('words', 'en'),
     ]
     for (const next of providers) {
-      for (const step of next()) {
+      for (const step of next(6)) {
         expect(normalizeKey(step.key)).toBe(step.key)
       }
     }

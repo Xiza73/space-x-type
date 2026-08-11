@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 
 import { resumeAudio } from './audio/context'
-import { GameCanvas } from './components/GameCanvas'
+import { GameCanvas, type RhythmMode, type SpeedId } from './components/GameCanvas'
 import { Overlays } from './components/Overlays'
 import { Toggle } from './components/Toggle'
+import { DEFAULTS, SPEED_PRESETS } from './game/constants'
 import type { Language, SequenceType } from './game/sequence'
 
 const SEQUENCE_OPTIONS = [
@@ -16,10 +17,19 @@ const LANGUAGE_OPTIONS = [
   { value: 'en', label: 'ENGLISH' },
 ] as const satisfies readonly { value: Language; label: string }[]
 
+const RHYTHM_OPTIONS = [
+  { value: 'arcade', label: 'ARCADE' },
+  { value: 'song', label: 'CANCIÓN' },
+] as const satisfies readonly { value: RhythmMode; label: string }[]
+
+const SPEED_OPTIONS = SPEED_PRESETS.map((p) => ({ value: p.id, label: p.label }))
+
 export function App() {
   const [started, setStarted] = useState(false)
   const [sequenceType, setSequenceType] = useState<SequenceType>('arrows')
   const [language, setLanguage] = useState<Language>('es')
+  const [rhythmMode, setRhythmMode] = useState<RhythmMode>('arcade')
+  const [speed, setSpeed] = useState<SpeedId>(DEFAULTS.speed)
 
   useEffect(() => {
     if (started) return
@@ -37,7 +47,16 @@ export function App() {
     setStarted(true)
   }
 
-  if (started) return <GameCanvas sequenceType={sequenceType} language={language} />
+  if (started) {
+    return (
+      <GameCanvas
+        sequenceType={sequenceType}
+        language={language}
+        rhythmMode={rhythmMode}
+        speed={speed}
+      />
+    )
+  }
 
   return (
     <>
@@ -46,21 +65,32 @@ export function App() {
 
         <h1 className="chrome font-display text-6xl leading-none">SPACE x TYPE</h1>
 
-        <p className="max-w-[520px] text-[15px] leading-relaxed text-ink-soft">
+        <p className="max-w-[560px] text-[15px] leading-relaxed text-ink-soft">
           {sequenceType === 'arrows'
             ? 'Completá la secuencia con las flechas'
             : 'Escribí la palabra completa'}{' '}
           y presioná <b className="text-gold">ESPACIO</b> cuando el marcador cruce la zona
-          dorada. La barra se acelera con cada nivel.
+          dorada.{' '}
+          {rhythmMode === 'arcade'
+            ? 'La barra se acelera con cada nivel y jugás hasta quedarte sin vidas.'
+            : 'La velocidad no cambia: lo que sube es la cantidad de teclas, y la partida dura dos minutos.'}
         </p>
 
         <div className="flex flex-wrap justify-center gap-4">
           <Toggle
-            label="MODO DE JUEGO"
+            label="SECUENCIA"
             value={sequenceType}
             options={SEQUENCE_OPTIONS}
             accent="magenta"
             onChange={setSequenceType}
+          />
+
+          <Toggle
+            label="RITMO"
+            value={rhythmMode}
+            options={RHYTHM_OPTIONS}
+            accent="magenta"
+            onChange={setRhythmMode}
           />
 
           {sequenceType === 'words' && (
@@ -70,6 +100,16 @@ export function App() {
               options={LANGUAGE_OPTIONS}
               accent="cyan"
               onChange={setLanguage}
+            />
+          )}
+
+          {rhythmMode === 'song' && (
+            <Toggle
+              label="VELOCIDAD"
+              value={speed}
+              options={SPEED_OPTIONS}
+              accent="cyan"
+              onChange={setSpeed}
             />
           )}
         </div>

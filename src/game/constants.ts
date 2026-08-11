@@ -29,9 +29,11 @@ export const SCORING = {
 } as const
 
 /**
- * La aceleración de la barra es el **único** mecanismo de dificultad.
- * No se toca la longitud de la secuencia ni las ventanas de timing:
- * una sola variable es legible para el jugador.
+ * Progresión del modo **arcade**: la barra se acelera y la secuencia mantiene
+ * el largo. Una sola palanca de dificultad, legible para el jugador.
+ *
+ * Ojo: este modelo NO se traslada a canción. Ahí el tempo lo pone la canción y
+ * la barra no puede acelerar, así que la dificultad sale del largo (ver `SONG`).
  */
 export const PROGRESSION = {
   baseDurationMs: 4200,
@@ -39,6 +41,29 @@ export const PROGRESSION = {
   minDurationMs: 1500,
   hitsPerLevel: 4,
 } as const
+
+/**
+ * Progresión del modo **canción**: velocidad fija y el largo de la secuencia
+ * sube de a uno hasta el techo, después vuelve al piso. Diente de sierra.
+ *
+ * Emula lo que va a hacer un beatmap real, sin necesitar el pipeline de audio.
+ */
+export const SONG = {
+  minKeys: 3,
+  maxKeys: 8,
+  /** Cada cuántos aciertos sube una tecla. */
+  hitsPerKeyStep: 3,
+  /** Cuánto dura la partida. Hace las veces de "largo de la canción". */
+  durationMs: 120_000,
+} as const
+
+/** Velocidades elegibles para el modo canción, en duración de ronda. */
+export const SPEED_PRESETS = [
+  { id: 'calma', label: 'CALMA', roundDurationMs: 3400 },
+  { id: 'normal', label: 'NORMAL', roundDurationMs: 2600 },
+  { id: 'rapido', label: 'RÁPIDO', roundDurationMs: 1900 },
+  { id: 'extremo', label: 'EXTREMO', roundDurationMs: 1400 },
+] as const
 
 export const ROUND = {
   arrowCount: 5,
@@ -49,6 +74,7 @@ export const DEFAULTS = {
   lives: 3,
   bpm: 132,
   speedScale: 1,
+  speed: 'normal',
 } as const
 
 /** Rangos válidos para la pantalla de configuración. */

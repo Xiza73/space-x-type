@@ -5,19 +5,34 @@
 El prototipo de referencia deja clara una separación que hay que respetar en el código: lo
 que el jugador tipea y de dónde sale el ritmo son **decisiones independientes**.
 
-| | **Arcade** (procedural) | **Canción** (biblioteca) |
-|---|---|---|
-| **Flechas** | ✅ modo 1 — el del prototipo | ✅ |
-| **Palabras** | ✅ | ✅ |
+| | **Arcade** | **Canción simulada** | **Canción real** |
+|---|---|---|---|
+| **Flechas** | ✅ el del prototipo | ✅ | ✅ |
+| **Palabras** | ✅ | ✅ | ✅ |
 
 - **Eje 1 — tipo de secuencia:** `arrows` (↑↓←→) · `words` (es/en).
-- **Eje 2 — fuente del ritmo:** `arcade` (chiptune generado, acelera por nivel, vidas) ·
-  `song` (beatmap de una canción de la biblioteca).
+- **Eje 2 — fuente del ritmo:** `arcade` · `song` simulada (chiptune, velocidad elegida) ·
+  `song` real (beatmap de la biblioteca).
 
-Son **2×2 = 4 combinaciones**, y las cuatro entran en el MVP. Concretamente: el generador de
-secuencias no sabe de dónde viene el ritmo, y el proveedor de ritmo no sabe qué se tipea.
-Si alguna vez tenés un `if (mode === 'arcade')` dentro del generador de secuencias, los ejes
-se te mezclaron — separalos de nuevo.
+Son **2×3 = 6 combinaciones**. Concretamente: el generador de secuencias no sabe de dónde
+viene el ritmo, y el proveedor de ritmo no sabe qué se tipea. Si alguna vez tenés un
+`if (mode === 'arcade')` dentro del generador de secuencias, los ejes se te mezclaron.
+
+## Cómo se reparten las responsabilidades
+
+El motor (`engine.ts`) **no implementa ninguno de los dos ejes**. Recibe la secuencia y la
+duración de la ronda **como datos** en `startRound`, y no sabe de dónde salieron.
+
+| Quién | Qué decide |
+|---|---|
+| `sequence.ts` (eje 1) | Qué se tipea, dado **cuántas teclas** le piden |
+| `rhythm.ts` (eje 2) | Cuánto dura la ronda, cuántas teclas, cuánto dura la partida |
+| `loop.ts` | Los junta: le pide el largo al ritmo y se lo pasa a la secuencia |
+| `engine.ts` | Timing, scoring, vidas. Nada de progresión |
+
+> Este reparto no estuvo bien desde el principio. `startRound` calculaba la duración con la
+> fórmula de arcade adentro, o sea que el motor tenía metido el eje 2. Con un solo modo no
+> se notaba. Si aparece otra fuente de ritmo y hay que tocar `engine.ts`, algo se filtró.
 
 ## Modo Arcade — el primero a construir
 
@@ -68,15 +83,40 @@ son la razón por la que después nadie se anima a calibrar el juego.
 
 ### Progresión
 
-La barra se acelera **cada 4 aciertos**, con piso de 1500ms. La aceleración es el único
-mecanismo de dificultad: no cambia la longitud de la secuencia ni las ventanas de timing.
-Mantenelo así — una sola variable de dificultad es legible para el jugador.
+La barra se acelera **cada 4 aciertos**, con piso de 1500ms. El largo de la secuencia no se
+mueve. Una sola palanca de dificultad por modo: acá es la velocidad.
 
 ## Modo Canción
 
-Mismo ciclo de ronda, pero el ritmo y el tempo salen del **beatmap** de una canción de la
-biblioteca, no de una fórmula. La partida dura lo que dura la canción, no hasta perder las
-vidas.
+**El tempo lo pone la canción.** Por eso la barra no puede acelerar: si acelera, se va del
+beat y se pierde lo único que hace que un juego de ritmo sea un juego de ritmo.
+
+Consecuencia directa: **el modelo de dificultad de arcade no se traslada acá.** La velocidad
+es fija y la única palanca es **cuántas teclas** tiene la secuencia.
+
+```
+teclas       min + (floor(aciertos / hitsPerKeyStep) mod (max - min + 1))
+             piso 3 · techo 8 · sube cada 3 aciertos
+partida      dura un tiempo fijo, no hasta quedarse sin vidas
+velocidad    fija; en la simulada la elige el jugador, en la real la pone el beatmap
+```
+
+La curva es un **diente de sierra**: sube de a una tecla hasta el techo y vuelve al piso.
+Volver al piso es deliberado — da respiro y hace que la partida se sienta como una canción
+con estrofas y estribillo, no como una rampa que no termina más.
+
+### Canción simulada
+
+Misma mecánica, pero con el chiptune en vez de una canción descargada. Existe para poder
+construir y calibrar el modo canción **sin depender del pipeline de audio**, que es la parte
+más cara del proyecto. Cuando llegue el beatmap real, reemplaza a `songRhythm` y nada más
+cambia.
+
+### El largo de la palabra ES la dificultad
+
+En modo canción, una palabra de 8 letras no es un caso raro: es el nivel 8. Por eso las
+listas de `data/words/` cubren **todas** las longitudes entre el piso y el techo, y se elige
+por longitud, no al azar. Un hueco en la lista es un escalón que el juego se saltea.
 
 ## Reloj — vale para los dos modos
 

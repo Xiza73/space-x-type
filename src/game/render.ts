@@ -1,6 +1,12 @@
 import { COLORS, FONTS, ZONE_ALPHA } from '../theme/tokens'
 import { TIMING } from './constants'
-import { multiplierFor, progressAt, type GameState, type Judgement } from './engine'
+import {
+  multiplierFor,
+  progressAt,
+  remainingMs,
+  type GameState,
+  type Judgement,
+} from './engine'
 import type { ArrowDirection } from './sequence'
 
 const RAIL_MAX_W = 720
@@ -68,7 +74,7 @@ export function draw(canvas: HTMLCanvasElement, state: GameState, nowMs: number)
   ctx.fillStyle = COLORS.night
   ctx.fillRect(0, 0, w, h)
 
-  drawHud(ctx, state, w)
+  drawHud(ctx, state, nowMs, w)
   drawFeedback(ctx, state, w, h)
   drawSequence(ctx, state, w, h)
   drawRail(ctx, state, nowMs, w, h)
@@ -95,7 +101,12 @@ function prepare(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   return ctx
 }
 
-function drawHud(ctx: CanvasRenderingContext2D, state: GameState, w: number): void {
+function drawHud(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  nowMs: number,
+  w: number,
+): void {
   const cells: { label: string; value: string; color: string }[] = [
     { label: 'SCORE', value: String(state.score), color: COLORS.ink },
     { label: 'COMBO', value: String(state.combo), color: COLORS.magenta },
@@ -115,8 +126,20 @@ function drawHud(ctx: CanvasRenderingContext2D, state: GameState, w: number): vo
     x += spacing
   }
 
-  label(ctx, `NIVEL ${state.level}`, x, 40)
+  // En arcade la referencia es el nivel; en canción, cuánto queda de partida.
+  const remaining = remainingMs(state, nowMs)
+  label(
+    ctx,
+    remaining === null ? `NIVEL ${state.level}` : `TIEMPO ${formatClock(remaining)}`,
+    x,
+    40,
+  )
   drawHearts(ctx, state, x, 74)
+}
+
+function formatClock(ms: number): string {
+  const total = Math.ceil(ms / 1000)
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
 }
 
 function drawHearts(

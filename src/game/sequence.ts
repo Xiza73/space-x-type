@@ -61,16 +61,38 @@ export function makeArrowSequence(
 }
 
 /**
- * Una palabra al azar, letra por letra.
+ * Una palabra de `length` letras, partida letra por letra.
  *
  * Sin `dir`, así que el render las dibuja como texto en vez de vector. Esa es
  * toda la diferencia con las flechas del lado del dibujo.
  */
 export function makeWordSequence(
   words: readonly string[],
+  length: number,
   random: () => number = Math.random,
 ): Step[] {
-  return [...pick(words, random)].map((char) => ({ key: char, glyph: char }))
+  return [...pickOfLength(words, length, random)].map((char) => ({ key: char, glyph: char }))
+}
+
+/**
+ * Palabra de la longitud pedida. Si no hay ninguna exacta, cae a la longitud
+ * disponible más cercana en vez de reventar: las listas se editan a mano y un
+ * hueco no puede tumbar la partida.
+ *
+ * Filtra en cada ronda a propósito: son ~110 palabras una vez cada par de
+ * segundos. Indexar por longitud sería maquinaria para un costo que no existe.
+ */
+function pickOfLength(words: readonly string[], length: number, random: () => number): string {
+  const exact = words.filter((w) => w.length === length)
+  if (exact.length > 0) return pick(exact, random)
+
+  const nearest = words.reduce((best, w) =>
+    Math.abs(w.length - length) < Math.abs(best.length - length) ? w : best,
+  )
+  return pick(
+    words.filter((w) => w.length === nearest.length),
+    random,
+  )
 }
 
 export type SequenceType = 'arrows' | 'words'
@@ -81,15 +103,18 @@ const WORDS: Record<Language, readonly string[]> = { es: WORDS_ES, en: WORDS_EN 
 /**
  * Arma el proveedor de secuencias del modo elegido.
  *
- * Este es el **eje 1** (qué se tipea) completo. El eje 2 (de dónde sale el
- * ritmo) no aparece por ningún lado acá, y no tiene que aparecer: el loop llama
- * a esta función sin saber qué devuelve, y el motor recibe el resultado como
- * dato. Si alguna vez necesitás preguntar por el modo dentro del motor, los
- * ejes se mezclaron.
+ * Este es el **eje 1** (qué se tipea) completo. Recibe cuántas teclas tiene que
+ * producir, pero no sabe de dónde salió ese número: lo decide el eje 2. Si
+ * alguna vez necesitás preguntar acá por la fuente del ritmo, los ejes se
+ * mezclaron.
  */
-export function sequenceProvider(type: SequenceType, language: Language): () => Step[] {
-  if (type === 'arrows') return () => makeArrowSequence()
-  return () => makeWordSequence(WORDS[language])
+export function sequenceProvider(
+  type: SequenceType,
+  language: Language,
+): (length: number) => Step[] {
+  if (type === 'arrows') return (length) => makeArrowSequence(length)
+  const words = WORDS[language]
+  return (length) => makeWordSequence(words, length)
 }
 
 /** El clamp cubre un `random` inyectado que devuelva exactamente 1. */

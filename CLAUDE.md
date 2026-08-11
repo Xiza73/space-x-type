@@ -26,9 +26,10 @@ Cuatro aportes propios:
    elegís una de tu biblioteca o procesás una nueva. Procesar es una operación de **una sola
    vez** por canción, no un paso previo a cada partida.
 
-Tipo de secuencia (flechas/palabras) y fuente del ritmo (arcade/canción) son **ejes
-ortogonales**: 2×2 = 4 combinaciones, las cuatro dentro del MVP. Detalle en
-`@.claude/rules/game-modes.md`.
+Tipo de secuencia (flechas/palabras) y fuente del ritmo (arcade/canción simulada/canción
+real) son **ejes ortogonales**: 2×3 = 6 combinaciones. Cada fuente de ritmo trae su propia
+palanca de dificultad — arcade acelera la barra, canción sube la cantidad de teclas.
+Detalle en `@.claude/rules/game-modes.md`.
 
 **Uso personal.** No hay usuarios externos ni distribución pública del contenido musical.
 

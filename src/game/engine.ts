@@ -16,7 +16,8 @@ export type Status = 'idle' | 'round' | 'resolved' | 'over'
 
 export type GameConfig = {
   lives: number
-  speedScale: number
+  /** Cuánto dura la partida. `null` = hasta quedarse sin vidas (arcade). */
+  durationMs: number | null
 }
 
 export type GameState = {
@@ -35,15 +36,12 @@ export type GameState = {
   readonly roundDurationMs: number
   readonly resolvedAtMs: number
   readonly lastJudgement: Judgement | null
+  /** Cuándo arrancó la primera ronda. `null` hasta que arranca. */
+  readonly sessionStartMs: number | null
 }
 
 export function levelFor(hits: number): number {
   return 1 + Math.floor(hits / PROGRESSION.hitsPerLevel)
-}
-
-export function roundDurationMs(level: number, speedScale: number): number {
-  const raw = (PROGRESSION.baseDurationMs - (level - 1) * PROGRESSION.durationStepMs) * speedScale
-  return Math.max(PROGRESSION.minDurationMs, raw)
 }
 
 export function multiplierFor(combo: number): number {
@@ -81,19 +79,26 @@ export function createGame(config: GameConfig): GameState {
     sequence: [],
     index: 0,
     roundStartMs: 0,
-    roundDurationMs: roundDurationMs(1, config.speedScale),
+    roundDurationMs: 0,
     resolvedAtMs: 0,
     lastJudgement: null,
+    sessionStartMs: null,
   }
 }
 
 /**
- * Arranca una ronda con la secuencia dada.
+ * Arranca una ronda.
  *
- * La secuencia llega **como dato**: el motor no sabe si son flechas o una
- * palabra, ni de dónde salió el ritmo. Ahí viven los dos ejes ortogonales.
+ * La secuencia **y la duración** llegan como dato. El motor no sabe si son
+ * flechas o una palabra, ni si el ritmo acelera o es fijo. Ahí viven los dos
+ * ejes ortogonales: eje 1 arma la secuencia, eje 2 dice cuánto dura.
  */
-export function startRound(state: GameState, sequence: readonly Step[], nowMs: number): GameState {
+export function startRound(
+  state: GameState,
+  sequence: readonly Step[],
+  durationMs: number,
+  nowMs: number,
+): GameState {
   if (state.status !== 'idle') return state
   return {
     ...state,
@@ -101,8 +106,18 @@ export function startRound(state: GameState, sequence: readonly Step[], nowMs: n
     sequence,
     index: 0,
     roundStartMs: nowMs,
-    roundDurationMs: roundDurationMs(state.level, state.config.speedScale),
+    roundDurationMs: durationMs,
+    // El reloj de la partida arranca con la primera ronda, no al crear el juego:
+    // entre crear y arrancar puede pasar cualquier cosa (menú, permiso de audio).
+    sessionStartMs: state.sessionStartMs ?? nowMs,
   }
+}
+
+/** Milisegundos que quedan de partida. `null` si la partida no termina por tiempo. */
+export function remainingMs(state: GameState, nowMs: number): number | null {
+  const total = state.config.durationMs
+  if (total === null || state.sessionStartMs === null) return total === null ? null : total
+  return Math.max(0, total - (nowMs - state.sessionStartMs))
 }
 
 function resolve(state: GameState, judgement: Judgement, nowMs: number): GameState {
@@ -169,6 +184,11 @@ export function pressSpace(
  * Devuelve el mismo objeto cuando no hay cambios.
  */
 export function tick(state: GameState, nowMs: number): GameState {
+  // El tiempo de partida manda sobre todo lo demás: si la canción terminó,
+  // terminó, aunque haya una ronda a mitad de camino.
+  if (state.status !== 'over' && remainingMs(state, nowMs) === 0) {
+    return { ...state, status: 'over' }
+  }
   if (state.status === 'round' && progressAt(state, nowMs) >= 1) {
     return resolve(state, 'miss', nowMs)
   }
