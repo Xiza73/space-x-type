@@ -1,9 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { DEFAULTS, SPEED_PRESETS } from '../game/constants'
-import { startGameLoop } from '../game/loop'
+import type { GameState } from '../game/engine'
+import { startGameLoop, type Loop } from '../game/loop'
 import { arcadeRhythm, songRhythm } from '../game/rhythm'
 import { sequenceProvider, type Language, type SequenceType } from '../game/sequence'
+import { modeKey } from '../scores/client'
+import { GameOver } from './GameOver'
 import { Overlays } from './Overlays'
 
 export type RhythmMode = 'arcade' | 'song'
@@ -14,10 +17,13 @@ type Props = {
   language: Language
   rhythmMode: RhythmMode
   speed: SpeedId
+  onMenu: () => void
 }
 
-export function GameCanvas({ sequenceType, language, rhythmMode, speed }: Props) {
+export function GameCanvas({ sequenceType, language, rhythmMode, speed, onMenu }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const loopRef = useRef<Loop | null>(null)
+  const [over, setOver] = useState<GameState | null>(null)
 
   useEffect(() => {
     const canvas = ref.current
@@ -35,7 +41,9 @@ export function GameCanvas({ sequenceType, language, rhythmMode, speed }: Props)
       bpm: DEFAULTS.bpm,
       rhythm,
       nextSequence: sequenceProvider(sequenceType, language),
+      onGameOver: setOver,
     })
+    loopRef.current = loop
 
     const onKeyDown = (event: KeyboardEvent) => {
       // El espacio scrollea la página y las flechas mueven el foco. Los dos molestan.
@@ -47,6 +55,7 @@ export function GameCanvas({ sequenceType, language, rhythmMode, speed }: Props)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       loop.stop()
+      loopRef.current = null
     }
   }, [sequenceType, language, rhythmMode, speed])
 
@@ -54,6 +63,17 @@ export function GameCanvas({ sequenceType, language, rhythmMode, speed }: Props)
     <>
       <canvas ref={ref} className="block h-screen w-screen" />
       <Overlays />
+      {over !== null && (
+        <GameOver
+          state={over}
+          mode={modeKey(sequenceType, language, rhythmMode, speed)}
+          onRetry={() => {
+            setOver(null)
+            loopRef.current?.restart()
+          }}
+          onMenu={onMenu}
+        />
+      )}
     </>
   )
 }
