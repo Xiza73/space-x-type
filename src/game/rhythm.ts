@@ -1,3 +1,4 @@
+import type { Beatmap } from '../library/client'
 import { PROGRESSION, ROUND, SONG } from './constants'
 import { levelFor } from './engine'
 
@@ -15,6 +16,21 @@ export type RhythmSource = {
   sequenceLength(hits: number): number
   /** Cuánto dura la partida. `null` = hasta quedarse sin vidas. */
   totalDurationMs: number | null
+  /**
+   * Pausa entre rondas. En canción real es **cero**: las rondas van pegadas a
+   * la grilla del beat y el hueco lo pone la propia grilla.
+   */
+  interRoundPauseMs: number
+  /**
+   * En qué instante **debería haber arrancado** la ronda que corresponde a
+   * `nowMs`: el último compás ya cumplido, no el próximo.
+   *
+   * Tiene que ser el último y no el próximo porque el loop compara contra el
+   * reloj real: un frame cae en `t`, el siguiente en `t + 16`, y jamás en un
+   * múltiplo exacto del compás. Devolviendo el próximo, la condición
+   * `now >= slot` no se cumple nunca y el juego se queda esperando.
+   */
+  roundStartMs(nowMs: number): number
 }
 
 /**
@@ -31,6 +47,8 @@ export function arcadeRhythm(speedScale: number): RhythmSource {
     },
     sequenceLength: () => ROUND.arrowCount,
     totalDurationMs: null,
+    interRoundPauseMs: ROUND.interRoundPauseMs,
+    roundStartMs: (nowMs) => nowMs,
   }
 }
 
@@ -44,6 +62,34 @@ export function songRhythm(roundDurationMs: number): RhythmSource {
     roundDurationMs: () => roundDurationMs,
     sequenceLength: keyCountFor,
     totalDurationMs: SONG.durationMs,
+    interRoundPauseMs: ROUND.interRoundPauseMs,
+    roundStartMs: (nowMs) => nowMs,
+  }
+}
+
+/**
+ * Canción real: el tempo, el largo y la grilla salen del beatmap.
+ *
+ * `audioStartMs` es cuándo arranca el audio **en el reloj del juego**, o sea en
+ * la misma base de tiempo que `nowMs()`. Sin eso la grilla no significaría nada.
+ */
+export function beatmapRhythm(beatmap: Beatmap, audioStartMs: number): RhythmSource {
+  const gridStartMs = audioStartMs + beatmap.firstBeatMs
+  const step = beatmap.roundDurationMs
+
+  return {
+    roundDurationMs: () => step,
+    sequenceLength: keyCountFor,
+    totalDurationMs: beatmap.durationMs,
+    // Cero: si se le sumara una pausa, la ronda siguiente se pasaría del
+    // compás y el juego se saltearía uno de cada dos.
+    interRoundPauseMs: 0,
+    roundStartMs: (nowMs) => {
+      // Antes del primer beat todavía no hay grilla: se devuelve su comienzo,
+      // que al ser futuro deja la condición del loop en falso y hace esperar.
+      if (nowMs < gridStartMs) return gridStartMs
+      return gridStartMs + Math.floor((nowMs - gridStartMs) / step) * step
+    },
   }
 }
 

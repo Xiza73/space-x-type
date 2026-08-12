@@ -19,13 +19,14 @@ import type { Step } from './sequence'
 export type Loop = {
   stop(): void
   handleKey(rawKey: string): void
-  restart(): void
 }
 
 export type LoopOptions = {
   canvas: HTMLCanvasElement
-  config: GameConfig
-  bpm: number
+  /** La pausa entre rondas la aporta el ritmo, así que no viene acá. */
+  config: Omit<GameConfig, 'interRoundPauseMs'>
+  /** BPM del chiptune, o `null` cuando suena una canción de verdad. */
+  bpm: number | null
   /** **Eje 2**: cuánto dura la ronda y cuántas teclas tiene. */
   rhythm: RhythmSource
   /**
@@ -55,7 +56,8 @@ export function startGameLoop({
   nextSequence,
   onGameOver,
 }: LoopOptions): Loop {
-  let state = createGame(config)
+  const fullConfig: GameConfig = { ...config, interRoundPauseMs: rhythm.interRoundPauseMs }
+  let state = createGame(fullConfig)
   let raf = 0
   // La partida puede terminar en `tick` (se acabó el tiempo) o en `pressSpace`
   // (se acabaron las vidas). Comparar el estado anterior contra el nuevo dentro
@@ -63,7 +65,8 @@ export function startGameLoop({
   // estado ya venía en `over`. Una bandera cubre los dos caminos.
   let notified = false
 
-  startChiptune(bpm)
+  // Con una canción de verdad sonando, el chiptune sobra.
+  if (bpm !== null) startChiptune(bpm)
 
   function frame(): void {
     // UN solo valor del reloj por frame. Llamar `nowMs()` dos veces en el mismo
@@ -84,8 +87,21 @@ export function startGameLoop({
     }
 
     if (state.status === 'idle') {
-      const length = rhythm.sequenceLength(state.hits)
-      state = startRound(state, nextSequence(length), rhythm.roundDurationMs(state.hits), now)
+      const startAt = rhythm.roundStartMs(now)
+      // `startAt > state.roundStartMs` es lo que evita volver a arrancar en el
+      // mismo compás: sin eso, con la grilla ya cumplida se dispararía una
+      // ronda por frame.
+      if (now >= startAt && startAt > state.roundStartMs) {
+        const length = rhythm.sequenceLength(state.hits)
+        // La ronda arranca en `startAt`, no en `now`: el frame puede haber
+        // llegado unos milisegundos tarde y con un beatmap eso se acumula.
+        state = startRound(
+          state,
+          nextSequence(length),
+          rhythm.roundDurationMs(state.hits),
+          startAt,
+        )
+      }
     }
 
     draw(canvas, state, now)
@@ -112,19 +128,12 @@ export function startGameLoop({
     state = next
   }
 
-  function restart(): void {
-    state = createGame(config)
-    notified = false
-    startChiptune(bpm)
-  }
-
   return {
     stop(): void {
       cancelAnimationFrame(raf)
       stopChiptune()
     },
     handleKey,
-    restart,
   }
 }
 

@@ -72,7 +72,7 @@ export function draw(canvas: HTMLCanvasElement, state: GameState, nowMs: number)
   if (state.status === 'over') return
 
   drawHud(ctx, state, nowMs, w)
-  drawFeedback(ctx, state, w, h)
+  drawFeedback(ctx, state, nowMs, w, h)
   drawSequence(ctx, state, w, h)
   drawRail(ctx, state, nowMs, w, h)
 }
@@ -165,19 +165,34 @@ function drawHearts(
   }
 }
 
+/** Cuánto se ve el veredicto de la ronda. */
+const FEEDBACK_MS = 700
+
+/**
+ * El feedback dura un tiempo fijo, **no lo que dure el estado `resolved`**: con
+ * un beatmap la pausa entre rondas es cero y el veredicto se vería un frame.
+ */
 function drawFeedback(
   ctx: CanvasRenderingContext2D,
   state: GameState,
+  nowMs: number,
   w: number,
   h: number,
 ): void {
-  if (state.status !== 'resolved' || state.lastJudgement === null) return
+  if (state.lastJudgement === null) return
+
+  const since = nowMs - state.resolvedAtMs
+  if (since < 0 || since > FEEDBACK_MS) return
 
   const { text, color } = JUDGEMENT_LABEL[state.lastJudgement]
+  ctx.save()
+  // Se desvanece sobre el último tercio en vez de desaparecer de golpe.
+  ctx.globalAlpha = Math.min(1, (1 - since / FEEDBACK_MS) * 3)
   ctx.textAlign = 'center'
   ctx.font = `700 44px ${FONTS.display}`
   ctx.fillStyle = color
   ctx.fillText(text, w / 2, h * 0.26)
+  ctx.restore()
 }
 
 function drawSequence(

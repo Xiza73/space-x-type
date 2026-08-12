@@ -50,6 +50,19 @@ pub fn song_beatmap(app: AppHandle, id: String) -> Result<library::analysis::Bea
     library::beatmap(&dir, &id).map_err(library_message)
 }
 
+/// Devuelve el audio como bytes crudos (`InvokeResponseBody::Raw`), no como
+/// JSON: un array de números para un archivo de megabytes sería absurdo.
+#[tauri::command]
+pub async fn song_audio(app: AppHandle, id: String) -> Result<tauri::ipc::Response, String> {
+    let dir = data_dir(&app)?;
+    let bytes = tauri::async_runtime::spawn_blocking(move || library::audio_bytes(&dir, &id))
+        .await
+        .map_err(|_| "la lectura del audio se interrumpió".to_string())?
+        .map_err(library_message)?;
+
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewScore {

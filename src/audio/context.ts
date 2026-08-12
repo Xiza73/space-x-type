@@ -40,6 +40,19 @@ export async function resumeAudio(): Promise<void> {
 }
 
 /**
+ * Congela el contexto, y con él `currentTime`.
+ *
+ * Como el reloj del juego SALE de `currentTime`, esto pausa la partida, la
+ * canción y el chiptune de una sola vez y sin que nada se desincronice. Es un
+ * regalo de haber elegido el reloj de audio desde el principio: con
+ * `performance.now()` habría que llevar a mano un offset de pausa.
+ */
+export async function suspendAudio(): Promise<void> {
+  const ctx = getAudioContext()
+  if (ctx.state === 'running') await ctx.suspend()
+}
+
+/**
  * Reloj maestro, en **milisegundos**.
  *
  * `currentTime` viene en segundos; el motor del juego trabaja en ms. Esta es

@@ -115,6 +115,31 @@ pub fn beatmap(data_dir: &Path, raw_id: &str) -> Result<analysis::Beatmap, Libra
     })
 }
 
+/// Bytes del audio de una canción.
+///
+/// Se mandan por IPC en vez de exponer el archivo con el protocolo de assets:
+/// así la ruta **nunca sale de Rust**, no hay que aflojar la CSP y no hay un
+/// scope de globs que se pueda configurar mal.
+pub fn audio_bytes(data_dir: &Path, raw_id: &str) -> Result<Vec<u8>, LibraryError> {
+    if !is_safe_id(raw_id) {
+        return Err(LibraryError::OutsideDataDir);
+    }
+
+    let library: Library = jsonstore::read_or_default(&store::index_path(data_dir))?;
+    let song = store::find(&library.songs, raw_id).ok_or(LibraryError::NotFound)?;
+
+    // `audio_file` sale del índice, que es un archivo editable a mano: se trata
+    // como entrada no confiable igual que todo lo demás.
+    if song.audio_file.contains('/') || song.audio_file.contains('\\') {
+        return Err(LibraryError::OutsideDataDir);
+    }
+
+    let path = store::song_dir(data_dir, raw_id).join(&song.audio_file);
+    store::ensure_inside(data_dir, &path)?;
+
+    Ok(std::fs::read(path)?)
+}
+
 /// Borra una canción: los archivos **y** la entrada del índice.
 pub fn delete(data_dir: &Path, raw_id: &str) -> Result<(), LibraryError> {
     // El id llega del frontend, así que se revalida acá antes de tocar el
