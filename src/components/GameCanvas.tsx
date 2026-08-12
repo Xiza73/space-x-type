@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { resumeAudio, suspendAudio } from '../audio/context'
+import { nowMs, resumeAudio, suspendAudio } from '../audio/context'
 import { loadSong, playSong, type SongPlayback } from '../audio/song'
 import { COUNTDOWN_SECONDS, DEFAULTS, SPEED_PRESETS } from '../game/constants'
 import type { GameState } from '../game/engine'
@@ -48,9 +48,7 @@ export function GameCanvas({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [paused, setPaused] = useState(false)
-  // El título va aparte y no derivado de `paused`: al reanudar hay que apagar
-  // la pausa antes de contar, y derivarlo mostraría el texto de arranque.
-  const [countdown, setCountdown] = useState<{ value: number; title: string } | null>(null)
+  const [countdown, setCountdown] = useState<number | null>(null)
   const [run, setRun] = useState(0)
 
   useEffect(() => {
@@ -63,7 +61,6 @@ export function GameCanvas({
       if (canvas === null) return
 
       let buffer: AudioBuffer | null = null
-
       if (rhythmMode === 'song' && songId !== null) {
         setLoading(true)
         try {
@@ -80,21 +77,14 @@ export function GameCanvas({
       }
       if (cancelled) return
 
-      // La cuenta corre con el audio suspendido: nada suena y nada avanza.
-      await suspendAudio()
-      for (let left = COUNTDOWN_SECONDS; left > 0; left--) {
-        if (cancelled) return
-        setCountdown({ value: left, title: 'PREPARATE' })
-        await tick()
-      }
-      if (cancelled) return
-      setCountdown(null)
       await resumeAudio()
       if (cancelled) return
 
       let rhythm: RhythmSource
       let bpm: number | null = DEFAULTS.bpm
 
+      // La música arranca PRIMERO y la cuenta va encima: la intro de la canción
+      // suena mientras el jugador se acomoda, en vez de sonar en el vacío.
       if (buffer !== null && songId !== null) {
         try {
           const beatmap = await songBeatmap(songId)
@@ -115,10 +105,12 @@ export function GameCanvas({
 
       const loop = startGameLoop({
         canvas,
-        // Canción no lleva vidas: dura lo que dura la canción, se falle o no.
         config: {
+          // Canción no lleva vidas: dura lo que dura la canción, se falle o no.
           lives: rhythmMode === 'arcade' ? DEFAULTS.lives : null,
           durationMs: rhythm.totalDurationMs,
+          // El motor no arranca ninguna ronda hasta que termine la cuenta.
+          startsAtMs: nowMs() + COUNTDOWN_SECONDS * 1000,
         },
         bpm,
         rhythm,
@@ -136,6 +128,14 @@ export function GameCanvas({
         loop.handleKey(event.key)
       }
       window.addEventListener('keydown', onKeyDown)
+
+      // La cuenta corre con la música ya sonando.
+      for (let left = COUNTDOWN_SECONDS; left > 0; left--) {
+        if (cancelled) return
+        setCountdown(left)
+        await tick()
+      }
+      if (!cancelled) setCountdown(null)
     }
 
     void boot()
@@ -172,18 +172,13 @@ export function GameCanvas({
   }
 
   /**
-   * Volver de la pausa no es instantáneo: cuenta tres segundos en silencio y
-   * después descarta la ronda que estaba a medias. Retomar la barra donde
-   * quedó sería injusto en los dos sentidos.
+   * Volver de la pausa no lleva cuenta regresiva: se descarta la ronda a medias
+   * y el juego entra en anticipo, igual que después de un fallo. Un solo
+   * lenguaje para "esperá, ya volvés a jugar".
    */
   async function unpause() {
-    setPaused(false)
-    for (let left = COUNTDOWN_SECONDS; left > 0; left--) {
-      setCountdown({ value: left, title: 'SEGUÍ CUANDO ESTÉS' })
-      await tick()
-    }
-    setCountdown(null)
     pausedRef.current = false
+    setPaused(false)
     await resumeAudio()
     loopRef.current?.abort()
   }
@@ -207,7 +202,7 @@ export function GameCanvas({
         </p>
       )}
 
-      {countdown !== null && <Countdown value={countdown.value} title={countdown.title} />}
+      {countdown !== null && <Countdown value={countdown} title="PREPARATE" />}
 
       {error !== null && (
         <div className="fixed inset-0 grid place-content-center justify-items-center gap-4 bg-night px-6 text-center">
@@ -221,12 +216,12 @@ export function GameCanvas({
         </div>
       )}
 
-      {paused && over === null && countdown === null && (
+      {paused && over === null && (
         <div className="fixed inset-0 grid place-content-center justify-items-center gap-6 bg-night/92 px-6 text-center">
           <h2 className="chrome font-display text-5xl leading-none">PAUSA</h2>
           <p className="max-w-[420px] text-[13px] text-ink-soft">
-            El reloj está congelado. Al volver hay tres segundos de cuenta y la barra
-            arranca de cero; la canción sigue donde la dejaste.
+            El reloj está congelado. Al volver vas a ver la próxima secuencia en gris con la
+            barra corriendo: cuando se prenda, se juega.
           </p>
           <div className="flex gap-3">
             <button

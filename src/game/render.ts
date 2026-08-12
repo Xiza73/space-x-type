@@ -16,6 +16,9 @@ const RAIL_H = 48
 const TILE = 66
 const TILE_GAP = 12
 
+/** Opacidad de la ronda de anticipo: se ve, pero se lee como "todavía no". */
+const PREVIEW_ALPHA = 0.35
+
 export type Rect = { x: number; y: number; width: number; height: number }
 
 /**
@@ -203,6 +206,11 @@ function drawSequence(
 ): void {
   const tiles = tileLayout(state.sequence.length, w, h)
 
+  ctx.save()
+  // En anticipo la secuencia se ve pero apagada: comunica "esto viene, todavía
+  // no lo toques" sin sacarla de la pantalla.
+  if (state.status === 'preview') ctx.globalAlpha = PREVIEW_ALPHA
+
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
@@ -232,6 +240,7 @@ function drawSequence(
   })
 
   ctx.textBaseline = 'alphabetic'
+  ctx.restore()
 }
 
 type Skin = {
@@ -341,9 +350,13 @@ function drawRail(
   ctx.fillStyle = zoneGradient(ctx, rail)
   ctx.fillRect(rail.x, rail.y, rail.width, rail.height)
 
-  if (state.status === 'round') {
+  // El marcador también corre en anticipo: es lo que le dice al jugador cuándo
+  // vuelve a jugar. Sin él, la espera se siente como que el juego se colgó.
+  if (state.status === 'round' || state.status === 'preview') {
+    ctx.globalAlpha = state.status === 'preview' ? PREVIEW_ALPHA : 1
     ctx.fillStyle = COLORS.magentaLight
     ctx.fillRect(markerX(rail, progressAt(state, nowMs)) - 2, rail.y, 4, rail.height)
+    ctx.globalAlpha = 1
   }
   ctx.restore()
 

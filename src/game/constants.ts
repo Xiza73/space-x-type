@@ -97,10 +97,10 @@ export const COUNTDOWN_SECONDS = 3
  * Cuánto se tolera arrancar una ronda tarde respecto de su compás.
  *
  * El compás que devuelve el ritmo es el último **ya cumplido**, así que casi
- * siempre está a un frame de distancia. Pero después de un fallo —que suma una
- * ronda de espera— el último compás quedó muy atrás, y arrancar ahí daría una
- * ronda que nace con la barra a mitad de camino. Pasada la tolerancia, se
- * espera al siguiente.
+ * siempre está a un frame de distancia. Pero si algo traba el hilo —una pausa
+ * del recolector, una ventana que vuelve del fondo— ese compás puede quedar muy
+ * atrás, y arrancar ahí daría una ronda que nace con la barra a mitad de camino.
+ * Pasada la tolerancia se espera al siguiente, que es lo justo para el jugador.
  */
 export const ROUND_START_TOLERANCE_MS = 100
 

@@ -95,11 +95,13 @@ export type KeyResult = 'advance' | 'reset' | 'ignored'
 
 /**
  * - `idle`     listo para arrancar la próxima ronda
+ * - `preview`  se ve la secuencia que viene y el marcador corre, pero **no se
+ *              acepta input**: es la espera después de un fallo o de una pausa
  * - `round`    el marcador corre y se acepta input
  * - `resolved` ya se juzgó, corriendo la pausa entre rondas
  * - `over`     sin vidas
  */
-export type Status = 'idle' | 'round' | 'resolved' | 'over'
+export type Status = 'idle' | 'preview' | 'round' | 'resolved' | 'over'
 
 export type GameConfig = {
   /**
@@ -112,6 +114,11 @@ export type GameConfig = {
   lives: number | null
   /** Cuánto dura la partida. `null` = hasta quedarse sin vidas (arcade). */
   durationMs: number | null
+  /**
+   * Antes de este instante no arranca ninguna ronda. Es lo que sostiene la
+   * cuenta regresiva mientras la canción ya está sonando.
+   */
+  startsAtMs: number
   /**
    * Cuánto se espera entre que se resuelve una ronda y arranca la siguiente.
    * Lo pone la fuente del ritmo: con un beatmap es cero, porque el hueco lo da
@@ -197,7 +204,7 @@ export function createGame(config: GameConfig): GameState {
     roundStartMs: 0,
     roundDurationMs: 0,
     resolvedAtMs: 0,
-    resumeAtMs: 0,
+    resumeAtMs: config.startsAtMs,
     lastJudgement: null,
     sessionStartMs: null,
     stats: NO_STATS,
@@ -239,13 +246,40 @@ export function startRound(
  * contexto visual, o se congeló justo antes de la zona—.
  */
 export function abortRound(state: GameState, nowMs: number): GameState {
-  if (state.status !== 'round') return state
+  if (state.status !== 'round' && state.status !== 'preview') return state
   return {
     ...state,
     status: 'idle',
     sequence: [],
     index: 0,
     resumeAtMs: nowMs,
+  }
+}
+
+/**
+ * Arranca una ronda de **anticipo**: se ve la secuencia que viene y el marcador
+ * corre, pero no se acepta input.
+ *
+ * Es la espera después de un fallo y al volver de una pausa. Un hueco muerto
+ * deja al jugador sin saber cuándo vuelve a jugar; con el anticipo ve la
+ * secuencia de antemano y ve la barra corriendo, así que sabe exactamente
+ * cuándo tiene que empezar a tipear.
+ */
+export function startPreview(
+  state: GameState,
+  sequence: readonly Step[],
+  durationMs: number,
+  startAtMs: number,
+): GameState {
+  if (state.status !== 'idle') return state
+  return {
+    ...state,
+    status: 'preview',
+    sequence,
+    index: 0,
+    roundStartMs: startAtMs,
+    roundDurationMs: durationMs,
+    sessionStartMs: state.sessionStartMs ?? startAtMs,
   }
 }
 
@@ -277,9 +311,6 @@ function resolve(
   const lives = rule.costsLife && hasLives ? state.lives - 1 : state.lives
   const gained = rule.score
 
-  // Fallar cuesta una ronda entera de espera, no solo la pausa habitual.
-  const extraWait = judgement === 'miss' ? state.roundDurationMs : 0
-
   return {
     ...state,
     status: hasLives && lives <= 0 ? 'over' : 'resolved',
@@ -290,7 +321,9 @@ function resolve(
     lives,
     level: levelFor(rounds),
     resolvedAtMs: nowMs,
-    resumeAtMs: nowMs + state.config.interRoundPauseMs + extraWait,
+    // Fallar no suma espera acá: la espera es la ronda de anticipo que arma el
+    // loop, y que además le muestra al jugador lo que viene.
+    resumeAtMs: nowMs + state.config.interRoundPauseMs,
     lastJudgement: judgement,
     stats: countRound(state.stats, judgement, detail, state.roundDurationMs),
   }
@@ -376,6 +409,17 @@ export function tick(state: GameState, nowMs: number): GameState {
   if (state.status !== 'over' && remainingMs(state, nowMs) === 0) {
     return { ...state, status: 'over' }
   }
+  // El anticipo se convierte solo en la ronda de verdad, y arranca justo donde
+  // terminó: así la promesa que se le mostró al jugador se cumple sobre el beat.
+  if (state.status === 'preview' && progressAt(state, nowMs) >= 1) {
+    return {
+      ...state,
+      status: 'round',
+      index: 0,
+      roundStartMs: state.roundStartMs + state.roundDurationMs,
+    }
+  }
+
   if (state.status === 'round' && progressAt(state, nowMs) >= 1) {
     return resolve(state, 'miss', nowMs, { reason: 'timeout' })
   }

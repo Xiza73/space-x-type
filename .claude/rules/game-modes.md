@@ -99,11 +99,29 @@ Tres rondas suben un escalón **se ganen o no**: tres aciertos o dos aciertos y 
 lo mismo. Si contara aciertos, al jugador que falla se le congelaría la dificultad justo
 cuando necesita que la partida avance, y una mala racha lo dejaría estancado en el piso.
 
-### Un `miss` cuesta una ronda de espera
+### La ronda de anticipo
 
-Después de fallar, la ronda siguiente no arranca hasta pasada una ronda entera. Sin eso,
-machacar espacio encadena fallos y se comen las tres vidas sin ninguna chance de reaccionar
-—el fallo se vuelve autoinfligido y el juego se siente roto—.
+Después de un fallo —y al volver de una pausa— no se juega la ronda siguiente: se muestra
+**en anticipo**. La secuencia se ve al 35% de opacidad y el marcador corre igual, pero no se
+acepta input. Al terminar, esa misma secuencia se convierte en la ronda de verdad.
+
+Cubre dos cosas de un saque:
+
+- **Frena el encadenado de fallos.** Machacar espacio después de fallar se comería las tres
+  vidas sin ninguna chance de reaccionar: el fallo se vuelve autoinfligido y el juego se
+  siente roto.
+- **Le dice al jugador qué viene y cuándo.** Un hueco muerto se siente como que el juego se
+  colgó. Con la secuencia a la vista y la barra corriendo, sabe exactamente qué va a tener
+  que tipear y en qué momento arranca.
+
+Volver de una pausa usa el mismo mecanismo, sin cuenta regresiva: un solo lenguaje visual
+para "esperá, ya volvés a jugar".
+
+### La cuenta regresiva va sobre la música
+
+Al empezar, la canción arranca **primero** y la cuenta de tres segundos corre encima. La
+intro suena mientras el jugador se acomoda, en vez de sonar en el vacío. Lo que espera es el
+juego, no el audio: `config.startsAtMs` retiene el arranque de las rondas.
 
 ### Reglas de input
 
