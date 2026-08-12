@@ -1,8 +1,9 @@
 import { startChiptune, stopChiptune } from '../audio/chiptune'
 import { nowMs } from '../audio/context'
-import { CONFIRM_KEYS } from './constants'
+import { CONFIRM_KEYS, ROUND_START_TOLERANCE_MS } from './constants'
 import { sfxBad, sfxGood, sfxGreat, sfxKey, sfxMiss, sfxPerfect, sfxWrong } from '../audio/sfx'
 import {
+  abortRound,
   createGame,
   pressKey,
   pressSpace,
@@ -19,6 +20,8 @@ import type { Step } from './sequence'
 export type Loop = {
   stop(): void
   handleKey(rawKey: string): void
+  /** Descarta la ronda en curso. Se usa al volver de una pausa. */
+  abort(): void
 }
 
 export type LoopOptions = {
@@ -88,17 +91,21 @@ export function startGameLoop({
 
     if (state.status === 'idle') {
       const startAt = rhythm.roundStartMs(now)
-      // `startAt > state.roundStartMs` es lo que evita volver a arrancar en el
-      // mismo compás: sin eso, con la grilla ya cumplida se dispararía una
-      // ronda por frame.
-      if (now >= startAt && startAt > state.roundStartMs) {
-        const length = rhythm.sequenceLength(state.hits)
+      // Tres condiciones, y las tres hacen falta:
+      // - `now >= startAt`: el compás ya llegó.
+      // - `startAt > state.roundStartMs`: no repetir el mismo compás, que si no
+      //   se dispararía una ronda por frame.
+      // - dentro de la tolerancia: un compás que quedó muy atrás —por la espera
+      //   que suma un fallo— daría una ronda que nace por la mitad.
+      const late = now - startAt
+      if (now >= startAt && startAt > state.roundStartMs && late <= ROUND_START_TOLERANCE_MS) {
+        const length = rhythm.sequenceLength(state.rounds)
         // La ronda arranca en `startAt`, no en `now`: el frame puede haber
         // llegado unos milisegundos tarde y con un beatmap eso se acumula.
         state = startRound(
           state,
           nextSequence(length),
-          rhythm.roundDurationMs(state.hits),
+          rhythm.roundDurationMs(state.rounds),
           startAt,
         )
       }
@@ -134,6 +141,9 @@ export function startGameLoop({
       stopChiptune()
     },
     handleKey,
+    abort(): void {
+      state = abortRound(state, nowMs())
+    },
   }
 }
 

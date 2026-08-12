@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { PROGRESSION, ROUND, SCORING, TIMING } from './constants'
 import {
+  abortRound,
   createGame,
   judge,
   levelFor,
@@ -40,20 +41,25 @@ function typeAll(state: GameState): GameState {
   return state.sequence.reduce((s, step) => pressKey(s, step.key).state, state)
 }
 
-/** Juega una ronda entera y deja el juego listo para la siguiente. */
+/**
+ * Juega una ronda entera y deja el juego listo para la siguiente.
+ *
+ * El tick va a `resumeAtMs` y no a un tiempo fijo: después de un fallo la
+ * espera es más larga, y con un tiempo fijo la ronda siguiente no arrancaría.
+ */
 function playRound(state: GameState, atProgress: number): GameState {
   const started = startRound(state, SEQ, DUR, 0)
   const typed = typeAll(started)
   const judged = pressSpace(typed, atProgress * DUR).state
-  return tick(judged, DUR + ROUND.interRoundPauseMs)
+  return tick(judged, judged.resumeAtMs)
 }
 
 describe('progresión', () => {
   it('sube de nivel cada 4 aciertos', () => {
     expect(levelFor(0)).toBe(1)
-    expect(levelFor(PROGRESSION.hitsPerLevel - 1)).toBe(1)
-    expect(levelFor(PROGRESSION.hitsPerLevel)).toBe(2)
-    expect(levelFor(PROGRESSION.hitsPerLevel * 2)).toBe(3)
+    expect(levelFor(PROGRESSION.roundsPerLevel - 1)).toBe(1)
+    expect(levelFor(PROGRESSION.roundsPerLevel)).toBe(2)
+    expect(levelFor(PROGRESSION.roundsPerLevel * 2)).toBe(3)
   })
 })
 
@@ -128,9 +134,9 @@ describe('qué hace cada escalón', () => {
     expect(s.lives).toBe(3)
   })
 
-  it('BAD no cuenta para la progresión', () => {
+  it('BAD igual cuenta para la progresión', () => {
     const s = at(TIMING.badStart)
-    expect(s.hits).toBe(0)
+    expect(s.rounds).toBe(1)
     expect(s.stats.bad).toBe(1)
   })
 
@@ -138,7 +144,6 @@ describe('qué hace cada escalón', () => {
     const s = at(0.1)
     expect(s.lastJudgement).toBe('miss')
     expect(s.lives).toBe(2)
-    expect(s.hits).toBe(0)
   })
 })
 
@@ -220,7 +225,7 @@ describe('resolución de la ronda', () => {
     expect(next.lastJudgement).toBe('perfect')
     expect(next.score).toBe(SCORING.perfect)
     expect(next.combo).toBe(1)
-    expect(next.hits).toBe(1)
+    expect(next.rounds).toBe(1)
   })
 
   it('GOOD suma 60', () => {
@@ -251,6 +256,83 @@ describe('resolución de la ronda', () => {
     expect(state.combo).toBe(0)
     expect(state.maxCombo).toBe(2)
     expect(state.lives).toBe(2)
+  })
+})
+
+describe('la progresión cuenta rondas, no aciertos', () => {
+  it('avanza igual con tres aciertos que con dos aciertos y un fallo', () => {
+    let limpio = newGame()
+    for (let i = 0; i < 3; i++) limpio = playRound(limpio, AT_PERFECT)
+
+    let mezclado = newGame()
+    mezclado = playRound(mezclado, AT_PERFECT)
+    mezclado = playRound(mezclado, AT_PERFECT)
+    mezclado = playRound(mezclado, 0.1) // fallo
+
+    expect(mezclado.rounds).toBe(limpio.rounds)
+    expect(mezclado.level).toBe(limpio.level)
+  })
+
+  it('sube de nivel cada 4 rondas, se ganen o no', () => {
+    let state = newGame(99)
+    for (let i = 0; i < PROGRESSION.roundsPerLevel; i++) state = playRound(state, 0.1)
+
+    expect(state.rounds).toBe(PROGRESSION.roundsPerLevel)
+    expect(state.level).toBe(2)
+  })
+})
+
+describe('espera después de un fallo', () => {
+  it('un MISS suma una ronda entera de espera', () => {
+    const state = pressSpace(startRound(newGame(), SEQ, DUR, 0), 0.1 * DUR).state
+
+    // Sin esto, machacar espacio después de fallar encadena fallos y se comen
+    // las tres vidas sin ninguna chance de reaccionar.
+    expect(state.resumeAtMs).toBe(0.1 * DUR + ROUND.interRoundPauseMs + DUR)
+  })
+
+  it('un acierto solo espera la pausa habitual', () => {
+    const typed = typeAll(startRound(newGame(), SEQ, DUR, 0))
+    const state = pressSpace(typed, AT_PERFECT * DUR).state
+
+    expect(state.resumeAtMs).toBe(AT_PERFECT * DUR + ROUND.interRoundPauseMs)
+  })
+
+  it('no acepta otra confirmación mientras espera', () => {
+    const fallo = pressSpace(startRound(newGame(), SEQ, DUR, 0), 0.1 * DUR).state
+    const segundo = pressSpace(fallo, 0.1 * DUR + 10)
+
+    expect(segundo.judgement).toBeNull()
+    expect(segundo.state.lives).toBe(fallo.lives)
+  })
+
+  it('sigue esperando aunque se cumpla la pausa normal', () => {
+    const fallo = pressSpace(startRound(newGame(), SEQ, DUR, 0), 0.1 * DUR).state
+    const apenasDespuesDeLaPausa = 0.1 * DUR + ROUND.interRoundPauseMs + 1
+
+    expect(tick(fallo, apenasDespuesDeLaPausa).status).toBe('resolved')
+    expect(tick(fallo, fallo.resumeAtMs).status).toBe('idle')
+  })
+})
+
+describe('descartar la ronda en curso', () => {
+  it('la deja lista para arrancar de cero, sin puntuarla', () => {
+    const state = typeAll(startRound(newGame(), SEQ, DUR, 0))
+    const abortada = abortRound(state, 5_000)
+
+    expect(abortada.status).toBe('idle')
+    expect(abortada.sequence).toEqual([])
+    expect(abortada.index).toBe(0)
+    expect(abortada.resumeAtMs).toBe(5_000)
+    // No cuenta como ronda jugada ni toca el puntaje.
+    expect(abortada.rounds).toBe(0)
+    expect(abortada.score).toBe(0)
+    expect(abortada.lives).toBe(3)
+  })
+
+  it('no hace nada si no hay ronda en curso', () => {
+    const state = newGame()
+    expect(abortRound(state, 5_000)).toBe(state)
   })
 })
 

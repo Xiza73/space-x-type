@@ -53,7 +53,13 @@ export const PROGRESSION = {
   baseDurationMs: 4200,
   durationStepMs: 350,
   minDurationMs: 1500,
-  hitsPerLevel: 4,
+  /**
+   * La progresión cuenta **rondas jugadas**, no aciertos: tres rondas suben un
+   * escalón sean tres aciertos o dos aciertos y un fallo. Si contara aciertos,
+   * al jugador que falla se le congela la dificultad justo cuando necesita que
+   * la partida avance.
+   */
+  roundsPerLevel: 4,
 } as const
 
 /**
@@ -65,8 +71,8 @@ export const PROGRESSION = {
 export const SONG = {
   minKeys: 3,
   maxKeys: 8,
-  /** Cada cuántos aciertos sube una tecla. */
-  hitsPerKeyStep: 3,
+  /** Cada cuántas **rondas jugadas** sube una tecla. Acierto o fallo, cuenta. */
+  roundsPerKeyStep: 3,
   /** Cuánto dura la partida. Hace las veces de "largo de la canción". */
   durationMs: 120_000,
 } as const
@@ -83,6 +89,20 @@ export const ROUND = {
   arrowCount: 5,
   interRoundPauseMs: 700,
 } as const
+
+/** Cuenta regresiva al empezar y al volver de una pausa, en segundos. */
+export const COUNTDOWN_SECONDS = 3
+
+/**
+ * Cuánto se tolera arrancar una ronda tarde respecto de su compás.
+ *
+ * El compás que devuelve el ritmo es el último **ya cumplido**, así que casi
+ * siempre está a un frame de distancia. Pero después de un fallo —que suma una
+ * ronda de espera— el último compás quedó muy atrás, y arrancar ahí daría una
+ * ronda que nace con la barra a mitad de camino. Pasada la tolerancia, se
+ * espera al siguiente.
+ */
+export const ROUND_START_TOLERANCE_MS = 100
 
 /**
  * Teclas que confirman la secuencia.

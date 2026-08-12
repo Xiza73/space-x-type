@@ -12,8 +12,8 @@ import { levelFor } from './engine'
  * hardcodeada la fórmula de arcade. Se notó recién al aparecer el segundo modo.
  */
 export type RhythmSource = {
-  roundDurationMs(hits: number): number
-  sequenceLength(hits: number): number
+  roundDurationMs(rounds: number): number
+  sequenceLength(rounds: number): number
   /** Cuánto dura la partida. `null` = hasta quedarse sin vidas. */
   totalDurationMs: number | null
   /**
@@ -39,9 +39,9 @@ export type RhythmSource = {
  */
 export function arcadeRhythm(speedScale: number): RhythmSource {
   return {
-    roundDurationMs: (hits) => {
+    roundDurationMs: (rounds) => {
       const raw =
-        (PROGRESSION.baseDurationMs - (levelFor(hits) - 1) * PROGRESSION.durationStepMs) *
+        (PROGRESSION.baseDurationMs - (levelFor(rounds) - 1) * PROGRESSION.durationStepMs) *
         speedScale
       return Math.max(PROGRESSION.minDurationMs, raw)
     },
@@ -99,7 +99,7 @@ export function beatmapRhythm(beatmap: Beatmap, audioStartMs: number): RhythmSou
  * Volver al piso es a propósito: da respiro y hace que la curva se sienta como
  * una canción con estrofas y estribillo, no como una rampa que no termina más.
  */
-export function keyCountFor(hits: number): number {
+export function keyCountFor(rounds: number): number {
   const span = SONG.maxKeys - SONG.minKeys + 1
-  return SONG.minKeys + (Math.floor(hits / SONG.hitsPerKeyStep) % span)
+  return SONG.minKeys + (Math.floor(rounds / SONG.roundsPerKeyStep) % span)
 }

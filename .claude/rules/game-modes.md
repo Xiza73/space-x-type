@@ -54,7 +54,7 @@ adornos pentatónicos) a BPM fijo. Cero assets, cero descargas.
 
 ```
 duración de ronda   dur = max(1500, (4200 - (nivel - 1) * 350) * speedScale)   [ms]
-nivel               nivel = 1 + floor(aciertos / 4)
+nivel               nivel = 1 + floor(rondas jugadas / 4)
 progreso            p = tiempo transcurrido / dur        ∈ [0, 1]
 
 PERFECT             0.795 <= p <= 0.885
@@ -82,16 +82,28 @@ degradado del riel deja de tener sentido — hay un test que lo impide.
 
 ### Qué hace cada escalón
 
-| | Puntos | Combo | Cuenta para progresión | Vida |
+| | Puntos | Combo | Vida | Espera después |
 |---|---|---|---|---|
-| `perfect` · `great` · `good` | sí | mantiene | sí | — |
-| `bad` | 20 | **corta** | **no** | — |
-| `miss` | 0 | corta | no | **−1** |
+| `perfect` · `great` · `good` | sí | mantiene | — | pausa normal |
+| `bad` | 20 | **corta** | — | pausa normal |
+| `miss` | 0 | corta | **−1** | pausa **+ una ronda entera** |
 
 **`bad` es el escalón que hace falta explicar.** Sumás algo y no perdés vida, pero se te
-corta el combo y no avanzás en la progresión. Sin eso sería un `good` flojo y no tendría
-razón de existir; con eso, es el aviso de que estás al borde **antes** de empezar a perder
-vidas. Un `miss` que llega sin advertencia se siente injusto.
+corta el combo. Sin eso sería un `good` flojo y no tendría razón de existir; con eso, es el
+aviso de que estás al borde **antes** de empezar a perder vidas. Un `miss` que llega sin
+advertencia se siente injusto.
+
+### La progresión cuenta rondas, no aciertos
+
+Tres rondas suben un escalón **se ganen o no**: tres aciertos o dos aciertos y un fallo dan
+lo mismo. Si contara aciertos, al jugador que falla se le congelaría la dificultad justo
+cuando necesita que la partida avance, y una mala racha lo dejaría estancado en el piso.
+
+### Un `miss` cuesta una ronda de espera
+
+Después de fallar, la ronda siguiente no arranca hasta pasada una ronda entera. Sin eso,
+machacar espacio encadena fallos y se comen las tres vidas sin ninguna chance de reaccionar
+—el fallo se vuelve autoinfligido y el juego se siente roto—.
 
 ### Reglas de input
 
@@ -117,8 +129,8 @@ Consecuencia directa: **el modelo de dificultad de arcade no se traslada acá.**
 es fija y la única palanca es **cuántas teclas** tiene la secuencia.
 
 ```
-teclas       min + (floor(aciertos / hitsPerKeyStep) mod (max - min + 1))
-             piso 3 · techo 8 · sube cada 3 aciertos
+teclas       min + (floor(rondas / roundsPerKeyStep) mod (max - min + 1))
+             piso 3 · techo 8 · sube cada 3 rondas jugadas
 partida      dura un tiempo fijo
 vidas        NINGUNA — `config.lives = null`
 velocidad    fija; en la simulada la elige el jugador, en la real la pone el beatmap
