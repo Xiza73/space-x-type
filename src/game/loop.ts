@@ -88,7 +88,10 @@ export function startGameLoop({
 
     if (state.status === 'idle') {
       const startAt = rhythm.roundStartMs(now)
-      if (now >= startAt) {
+      // `startAt > state.roundStartMs` es lo que evita volver a arrancar en el
+      // mismo compás: sin eso, con la grilla ya cumplida se dispararía una
+      // ronda por frame.
+      if (now >= startAt && startAt > state.roundStartMs) {
         const length = rhythm.sequenceLength(state.hits)
         // La ronda arranca en `startAt`, no en `now`: el frame puede haber
         // llegado unos milisegundos tarde y con un beatmap eso se acumula.

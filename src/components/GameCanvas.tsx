@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { resumeAudio, suspendAudio } from '../audio/context'
 import { loadSong, playSong, type SongPlayback } from '../audio/song'
 import { DEFAULTS, SPEED_PRESETS } from '../game/constants'
 import type { GameState } from '../game/engine'
@@ -33,6 +34,8 @@ export function GameCanvas({
   onMenu,
 }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const pausedRef = useRef(false)
+  const [paused, setPaused] = useState(false)
   // El buffer decodificado se cachea: reintentar no tiene que volver a traer
   // megabytes por IPC ni decodificar de nuevo.
   const bufferRef = useRef<{ id: string; buffer: AudioBuffer } | null>(null)
@@ -97,6 +100,9 @@ export function GameCanvas({
       onKeyDown = (event: KeyboardEvent) => {
         // El espacio scrollea la página y las flechas mueven el foco.
         if (event.key === ' ' || event.key.startsWith('Arrow')) event.preventDefault()
+        // En pausa el reloj está congelado: aceptar teclas dejaría al jugador
+        // resolviendo la ronda con la barra detenida.
+        if (pausedRef.current) return
         loop?.handleKey(event.key)
       }
       window.addEventListener('keydown', onKeyDown)
@@ -109,8 +115,32 @@ export function GameCanvas({
       if (onKeyDown !== null) window.removeEventListener('keydown', onKeyDown)
       loop?.stop()
       playback?.stop()
+      // Salir con el contexto suspendido dejaría la próxima partida con el
+      // reloj congelado y sin ninguna pista de por qué.
+      pausedRef.current = false
+      void resumeAudio()
     }
   }, [sequenceType, language, rhythmMode, speed, songId, run])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      // Con los resultados en pantalla la partida ya terminó: no hay qué pausar.
+      if (event.key !== 'Escape' || over !== null) return
+      const next = !pausedRef.current
+      pausedRef.current = next
+      setPaused(next)
+      void (next ? suspendAudio() : resumeAudio())
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [over])
+
+  function leave() {
+    pausedRef.current = false
+    setPaused(false)
+    void resumeAudio()
+    onMenu()
+  }
 
   return (
     <>
@@ -127,11 +157,38 @@ export function GameCanvas({
         <div className="fixed inset-0 grid place-content-center justify-items-center gap-4 bg-night px-6 text-center">
           <p className="max-w-[420px] text-red">No se pudo cargar la canción: {error}</p>
           <button
-            onClick={onMenu}
+            onClick={leave}
             className="cursor-pointer rounded-xl border-2 border-line px-6 py-3 font-bold text-ink-soft"
           >
             MENÚ
           </button>
+        </div>
+      )}
+
+      {paused && over === null && (
+        <div className="fixed inset-0 grid place-content-center justify-items-center gap-6 bg-night/92 px-6 text-center">
+          <h2 className="chrome font-display text-5xl leading-none">PAUSA</h2>
+          <p className="text-[13px] text-ink-soft">
+            El reloj está congelado: la partida te espera exactamente donde la dejaste.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                pausedRef.current = false
+                setPaused(false)
+                void resumeAudio()
+              }}
+              className="cursor-pointer rounded-xl bg-linear-to-b from-magenta-light to-magenta-dark px-8 py-3 font-display text-lg text-white"
+            >
+              CONTINUAR ⎋
+            </button>
+            <button
+              onClick={leave}
+              className="cursor-pointer rounded-xl border-2 border-line px-6 py-3 font-bold text-ink-soft hover:border-ink-muted"
+            >
+              MENÚ
+            </button>
+          </div>
         </div>
       )}
 
@@ -145,7 +202,7 @@ export function GameCanvas({
             setOver(null)
             setRun((n) => n + 1)
           }}
-          onMenu={onMenu}
+          onMenu={leave}
         />
       )}
     </>

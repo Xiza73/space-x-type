@@ -81,21 +81,65 @@ describe('ritmo con beatmap', () => {
     expect(rhythm.roundStartMs(GRID - 1)).toBe(GRID)
   })
 
-  it('engancha cada ronda al compás siguiente', () => {
+  it('devuelve el compás ya cumplido, no el próximo', () => {
+    // Si devolviera el próximo, la condición `now >= slot` del loop no se
+    // cumpliría nunca y el juego se quedaría esperando para siempre.
     expect(rhythm.roundStartMs(GRID)).toBe(GRID)
-    // A mitad de la primera ronda, la próxima arranca al cerrar el compás.
-    expect(rhythm.roundStartMs(GRID + 1)).toBe(GRID + 2000)
-    expect(rhythm.roundStartMs(GRID + 1680)).toBe(GRID + 2000)
+    expect(rhythm.roundStartMs(GRID + 1)).toBe(GRID)
+    expect(rhythm.roundStartMs(GRID + 1999)).toBe(GRID)
     expect(rhythm.roundStartMs(GRID + 2000)).toBe(GRID + 2000)
-    expect(rhythm.roundStartMs(GRID + 2001)).toBe(GRID + 4000)
+    expect(rhythm.roundStartMs(GRID + 2001)).toBe(GRID + 2000)
+  })
+
+  /**
+   * Reproduce la decisión del loop avanzando el reloj como lo hace un
+   * `requestAnimationFrame`: en saltos de ~16ms que **nunca** caen sobre un
+   * múltiplo exacto del compás.
+   */
+  function simulateLoop(source: typeof rhythm, from: number, to: number, frameMs: number) {
+    const starts: number[] = []
+    let lastRoundStart = 0
+
+    for (let now = from; now <= to; now += frameMs) {
+      const slot = source.roundStartMs(now)
+      if (now >= slot && slot > lastRoundStart) {
+        starts.push(slot)
+        lastRoundStart = slot
+      }
+    }
+    return starts
+  }
+
+  it('arranca una ronda por compás con frames realistas', () => {
+    // 16.7ms es el frame de 60fps: elegido a propósito para que jamás coincida
+    // con un múltiplo de 2000. El margen extra cubre el frame que hace falta
+    // para pasar el último compás.
+    const starts = simulateLoop(rhythm, AUDIO_START, GRID + 8000 + 50, 16.7)
+
+    expect(starts).toEqual([GRID, GRID + 2000, GRID + 4000, GRID + 6000, GRID + 8000])
   })
 
   it('no acumula deriva por más rondas que pasen', () => {
-    // El punto de engancharse a la grilla: la ronda 100 sigue sobre el beat.
-    for (const round of [1, 10, 100, 1000]) {
-      const inside = GRID + round * 2000 + 900
-      expect(rhythm.roundStartMs(inside)).toBe(GRID + (round + 1) * 2000)
-    }
+    const starts = simulateLoop(rhythm, AUDIO_START, GRID + 200_000 + 50, 16.7)
+
+    // La ronda 100 tiene que seguir clavada sobre el beat, sin corrimiento.
+    expect(starts[100]).toBe(GRID + 100 * 2000)
+    expect(starts).toHaveLength(101)
+  })
+
+  it('no arranca ninguna ronda antes del primer beat', () => {
+    const starts = simulateLoop(rhythm, AUDIO_START, GRID - 20, 16.7)
+    expect(starts).toEqual([])
+  })
+
+  it('en arcade arranca apenas queda libre, sin grilla', () => {
+    const arcade = arcadeRhythm(1)
+    const starts = simulateLoop(arcade, 1000, 1100, 16.7)
+
+    // Sin grilla, el primer frame ya sirve; el resto no repite porque el loop
+    // exige que el slot avance.
+    expect(starts.length).toBeGreaterThan(0)
+    expect(starts[0]).toBe(1000)
   })
 
   it('mueve el largo de la secuencia igual que el modo simulado', () => {
