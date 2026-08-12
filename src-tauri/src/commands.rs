@@ -50,6 +50,16 @@ pub fn song_beatmap(app: AppHandle, id: String) -> Result<library::analysis::Bea
     library::beatmap(&dir, &id).map_err(library_message)
 }
 
+#[tauri::command]
+pub fn set_song_bpm(
+    app: AppHandle,
+    id: String,
+    bpm: Option<f32>,
+) -> Result<library::Song, String> {
+    let dir = data_dir(&app)?;
+    library::set_bpm(&dir, &id, bpm).map_err(library_message)
+}
+
 /// Devuelve el audio como bytes crudos (`InvokeResponseBody::Raw`), no como
 /// JSON: un array de números para un archivo de megabytes sería absurdo.
 #[tauri::command]

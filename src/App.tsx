@@ -7,6 +7,7 @@ import { SongLibrary } from './components/SongLibrary'
 import { Toggle } from './components/Toggle'
 import { DEFAULTS, SPEED_PRESETS } from './game/constants'
 import type { Language, SequenceType } from './game/sequence'
+import type { SongStatus } from './library/client'
 
 const SEQUENCE_OPTIONS = [
   { value: 'arrows', label: '← FLECHAS' },
@@ -31,7 +32,7 @@ export function App() {
   const [language, setLanguage] = useState<Language>('es')
   const [rhythmMode, setRhythmMode] = useState<RhythmMode>('arcade')
   const [speed, setSpeed] = useState<SpeedId>(DEFAULTS.speed)
-  const [songId, setSongId] = useState<string | null>(null)
+  const [song, setSong] = useState<SongStatus | null>(null)
 
   useEffect(() => {
     if (started) return
@@ -60,7 +61,7 @@ export function App() {
         language={language}
         rhythmMode={rhythmMode}
         speed={speed}
-        songId={rhythmMode === 'song' ? songId : null}
+        song={rhythmMode === 'song' ? song : null}
         onMenu={() => setStarted(false)}
       />
     )
@@ -75,12 +76,12 @@ export function App() {
 
         <p className="max-w-[560px] text-[15px] leading-relaxed text-ink-soft">
           {sequenceType === 'arrows'
-            ? 'Completá la secuencia con las flechas'
-            : 'Escribí la palabra completa'}{' '}
-          y presioná <b className="text-gold">ESPACIO</b> cuando el marcador cruce la zona
+            ? 'Completa la secuencia con las flechas'
+            : 'Escribe la palabra completa'}{' '}
+          y presiona <b className="text-gold">ESPACIO</b> cuando el marcador cruce la zona
           dorada.{' '}
           {rhythmMode === 'arcade'
-            ? 'La barra se acelera con cada nivel y jugás hasta quedarte sin vidas.'
+            ? 'La barra se acelera con cada nivel y juegas hasta quedarte sin vidas.'
             : 'La velocidad no cambia: lo que sube es la cantidad de teclas, y la partida dura dos minutos.'}
         </p>
 
@@ -112,7 +113,7 @@ export function App() {
           )}
 
           {/* Con una canción elegida la velocidad la pone el beatmap. */}
-          {rhythmMode === 'song' && songId === null && (
+          {rhythmMode === 'song' && song === null && (
             <Toggle
               label="VELOCIDAD"
               value={speed}
@@ -123,7 +124,7 @@ export function App() {
           )}
         </div>
 
-        {rhythmMode === 'song' && <SongLibrary selected={songId} onSelect={setSongId} />}
+        {rhythmMode === 'song' && <SongLibrary selected={song} onSelect={setSong} />}
 
         <button
           onClick={() => void start()}

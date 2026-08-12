@@ -4,6 +4,7 @@ import { CONFIRM_KEYS, ROUND_START_TOLERANCE_MS } from './constants'
 import { sfxBad, sfxGood, sfxGreat, sfxKey, sfxMiss, sfxPerfect, sfxWrong } from '../audio/sfx'
 import {
   abortRound,
+  armSequence,
   createGame,
   pressKey,
   pressSpace,
@@ -14,7 +15,7 @@ import {
   type GameState,
   type Judgement,
 } from './engine'
-import { draw } from './render'
+import { draw, type TrackInfo } from './render'
 import type { RhythmSource } from './rhythm'
 import type { Step } from './sequence'
 
@@ -27,7 +28,7 @@ export type Loop = {
 
 export type LoopOptions = {
   canvas: HTMLCanvasElement
-  /** La pausa entre rondas la aporta el ritmo, así que no viene acá. */
+  /** La pausa entre rondas la aporta el ritmo, así que no viene aquí. */
   config: Omit<GameConfig, 'interRoundPauseMs'>
   /** BPM del chiptune, o `null` cuando suena una canción de verdad. */
   bpm: number | null
@@ -38,6 +39,8 @@ export type LoopOptions = {
    * una palabra.
    */
   nextSequence: (length: number) => Step[]
+  /** Qué suena, para mostrarlo en pantalla. `null` con el chiptune. */
+  track: TrackInfo | null
   /**
    * Se llama una sola vez, al terminar la partida. La pantalla de resultados
    * vive en React porque necesita un input de texto, y un input no va en canvas.
@@ -58,6 +61,7 @@ export function startGameLoop({
   bpm,
   rhythm,
   nextSequence,
+  track,
   onGameOver,
 }: LoopOptions): Loop {
   const fullConfig: GameConfig = { ...config, interRoundPauseMs: rhythm.interRoundPauseMs }
@@ -68,16 +72,16 @@ export function startGameLoop({
   // del frame se pierde el segundo caso, porque para cuando corre el frame el
   // estado ya venía en `over`. Una bandera cubre los dos caminos.
   let notified = false
-  // Después de un fallo o de una pausa, la próxima ronda se muestra primero en
-  // anticipo: se ve la secuencia y corre la barra, pero no se acepta input.
-  let wantsPreview = false
+  // La primera ronda también entra en anticipo: al terminar la cuenta el
+  // jugador ve lo que viene antes de tener que tocar nada.
+  let wantsPreview = true
 
   // Con una canción de verdad sonando, el chiptune sobra.
   if (bpm !== null) startChiptune(bpm)
 
   function frame(): void {
     // UN solo valor del reloj por frame. Llamar `nowMs()` dos veces en el mismo
-    // frame te da dos tiempos distintos y bugs de timing imposibles de reproducir.
+    // frame da dos tiempos distintos y bugs de timing imposibles de reproducir.
     const now = nowMs()
 
     const before = state
@@ -105,23 +109,26 @@ export function startGameLoop({
       //   que suma un fallo— daría una ronda que nace por la mitad.
       const late = now - startAt
       if (now >= startAt && startAt > state.roundStartMs && late <= ROUND_START_TOLERANCE_MS) {
-        const sequence = nextSequence(rhythm.sequenceLength(state.rounds))
-        const duration = rhythm.roundDurationMs(state.rounds)
-
+        // La secuencia ya está armada y visible: aquí solo se enciende.
         // Arranca en `startAt`, no en `now`: el frame puede haber llegado unos
         // milisegundos tarde y con un beatmap eso se acumula.
+        const duration = rhythm.roundDurationMs(state.rounds)
         if (wantsPreview) {
           wantsPreview = false
-          state = startPreview(state, sequence, duration, startAt)
+          state = startPreview(state, duration, startAt)
         } else {
-          state = startRound(state, sequence, duration, startAt)
+          state = startRound(state, duration, startAt)
         }
       }
     }
 
-    draw(canvas, state, now)
+    draw(canvas, state, now, track)
     raf = requestAnimationFrame(frame)
   }
+
+  // La primera secuencia se arma antes del primer frame: durante la cuenta
+  // regresiva ya se ve, apagada, lo que va a tocar jugar.
+  state = armSequence(state, nextSequence(rhythm.sequenceLength(0)))
 
   raf = requestAnimationFrame(frame)
 
@@ -143,11 +150,18 @@ export function startGameLoop({
     state = next
   }
 
-  /** Suena el veredicto y, si fue fallo, deja pedido el anticipo. */
+  /**
+   * Suena el veredicto, deja armada la próxima secuencia y, si hubo fallo,
+   * pide una ronda de anticipo completa.
+   *
+   * Armar aquí y no al arrancar la ronda es lo que hace que el jugador vea lo
+   * que viene durante todo el hueco, no cuando ya tiene que tocarlo.
+   */
   function afterJudgement(judgement: Judgement | null): void {
     if (judgement === null) return
     JUDGEMENT_SFX[judgement]()
     if (judgement === 'miss') wantsPreview = true
+    state = armSequence(state, nextSequence(rhythm.sequenceLength(state.rounds)))
   }
 
   return {

@@ -52,9 +52,18 @@ pub struct Song {
     /// siempre desde el id validado.
     pub audio_file: String,
     pub added_at: u64,
-    /// Se llena cuando se analiza el audio. `None` = todavía sin beatmap.
+    /// Tempo **detectado**. Se llena al analizar el audio y no se pisa nunca:
+    /// aunque el usuario corrija el tempo, esta sigue siendo la medición.
     pub bpm: Option<f32>,
+    /// Corrección manual del tempo. `None` = vale el detectado.
+    ///
+    /// `serde(default)` no es opcional aquí: sin eso, un `library.json` escrito
+    /// por una versión anterior no parsearía y terminaría respaldado como
+    /// corrupto, o sea que el usuario perdería su biblioteca al actualizar.
+    #[serde(default)]
+    pub bpm_override: Option<f32>,
 }
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Library {
@@ -159,7 +168,22 @@ mod tests {
             audio_file: "audio.m4a".into(),
             added_at,
             bpm: None,
+            bpm_override: None,
         }
+    }
+
+    #[test]
+    fn un_indice_sin_el_campo_nuevo_sigue_leyendose() {
+        // Migración: un library.json escrito antes de que existiera la
+        // corrección de tempo tiene que seguir parseando, o el usuario pierde
+        // su biblioteca al actualizar.
+        let viejo = r#"{"id":"dQw4w9WgXcQ","title":"T","durationSec":10,
+            "url":"https://youtu.be/dQw4w9WgXcQ","audioFile":"audio.m4a",
+            "addedAt":1,"bpm":128.0}"#;
+
+        let song: Song = serde_json::from_str(viejo).unwrap();
+        assert_eq!(song.bpm, Some(128.0));
+        assert_eq!(song.bpm_override, None);
     }
 
     fn tmp_dir(nombre: &str) -> PathBuf {

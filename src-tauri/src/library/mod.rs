@@ -31,7 +31,11 @@ pub fn list(data_dir: &Path) -> Result<Vec<SongStatus>, LibraryError> {
     Ok(library
         .songs
         .into_iter()
-        .map(|song| SongStatus { intact: store::is_intact(data_dir, &song), song })
+        .map(|song| SongStatus {
+            intact: store::is_intact(data_dir, &song),
+            bpm_range: song.bpm.map(analysis::suggested_range),
+            song,
+        })
         .collect())
 }
 
@@ -42,6 +46,11 @@ pub struct SongStatus {
     pub song: Song,
     /// `false` si el índice la tiene pero el audio no está en el disco.
     pub intact: bool,
+    /// Rango sugerido para corregir el tempo a mano. `None` si no hay medición.
+    ///
+    /// Se calcula aquí y no en el frontend para que la regla viva en un solo
+    /// lugar: es la misma que valida el comando que guarda la corrección.
+    pub bpm_range: Option<(f32, f32)>,
 }
 
 /// Valida la URL, descarga el audio si hace falta y deja la entrada en el índice.
@@ -70,7 +79,7 @@ pub fn process(data_dir: &Path, raw_url: &str) -> Result<Processed, LibraryError
 
     // 4. Analizar es parte de procesar: si la canción queda sin beatmap, no se
     //    puede jugar, y "está en la biblioteca pero no sirve" es peor que un
-    //    error claro acá.
+    //    error claro aquí.
     let beatmap = analysis::analyze(&dir.join(&downloaded.file_name))?;
     jsonstore::write_atomic(&store::beatmap_path(data_dir, &id), &beatmap)?;
 
@@ -89,6 +98,7 @@ pub fn process(data_dir: &Path, raw_url: &str) -> Result<Processed, LibraryError
         audio_file: downloaded.file_name,
         added_at: store::now_seconds(),
         bpm: Some(beatmap.bpm),
+        bpm_override: None,
     };
 
     let songs = store::upsert(&library.songs, song.clone());
@@ -100,7 +110,11 @@ pub fn process(data_dir: &Path, raw_url: &str) -> Result<Processed, LibraryError
     Ok(Processed { song, reused: false })
 }
 
-/// Beatmap de una canción ya procesada.
+/// Beatmap de una canción ya procesada, con la corrección de tempo aplicada.
+///
+/// El archivo en disco guarda siempre el análisis original: la corrección vive
+/// en el índice y se aplica al leer. Así se puede volver al detectado sin
+/// reprocesar la canción.
 pub fn beatmap(data_dir: &Path, raw_id: &str) -> Result<analysis::Beatmap, LibraryError> {
     if !is_safe_id(raw_id) {
         return Err(LibraryError::OutsideDataDir);
@@ -109,10 +123,36 @@ pub fn beatmap(data_dir: &Path, raw_id: &str) -> Result<analysis::Beatmap, Libra
     let path = store::beatmap_path(data_dir, raw_id);
     let raw = std::fs::read_to_string(&path).map_err(|_| LibraryError::NotFound)?;
 
-    serde_json::from_str(&raw).map_err(|e| {
+    let detected: analysis::Beatmap = serde_json::from_str(&raw).map_err(|e| {
         log::error!("beatmap ilegible en {}: {e}", path.display());
         LibraryError::Analysis
-    })
+    })?;
+
+    let library: Library = jsonstore::read_or_default(&store::index_path(data_dir))?;
+    match store::find(&library.songs, raw_id).and_then(|s| s.bpm_override) {
+        Some(bpm) => Ok(analysis::with_bpm(&detected, bpm)),
+        None => Ok(detected),
+    }
+}
+
+/// Guarda una corrección manual del tempo. `None` vuelve al detectado.
+pub fn set_bpm(data_dir: &Path, raw_id: &str, bpm: Option<f32>) -> Result<Song, LibraryError> {
+    if !is_safe_id(raw_id) {
+        return Err(LibraryError::OutsideDataDir);
+    }
+
+    let index = store::index_path(data_dir);
+    let library: Library = jsonstore::read_or_default(&index)?;
+    let mut song = store::find(&library.songs, raw_id).ok_or(LibraryError::NotFound)?.clone();
+
+    // El valor llega del frontend: se acota aquí, que es donde se escribe.
+    // Un tempo de cero dividiría por cero al armar la grilla.
+    song.bpm_override = bpm.filter(|v| v.is_finite()).map(analysis::clamp_bpm);
+
+    let songs = store::upsert(&library.songs, song.clone());
+    jsonstore::write_atomic(&index, &Library { version: store::SCHEMA_VERSION, songs })?;
+
+    Ok(song)
 }
 
 /// Bytes del audio de una canción.
@@ -142,7 +182,7 @@ pub fn audio_bytes(data_dir: &Path, raw_id: &str) -> Result<Vec<u8>, LibraryErro
 
 /// Borra una canción: los archivos **y** la entrada del índice.
 pub fn delete(data_dir: &Path, raw_id: &str) -> Result<(), LibraryError> {
-    // El id llega del frontend, así que se revalida acá antes de tocar el
+    // El id llega del frontend, así que se revalida aquí antes de tocar el
     // disco. Un borrado recursivo con la ruta equivocada no tiene deshacer.
     if !is_safe_id(raw_id) {
         return Err(LibraryError::OutsideDataDir);
