@@ -44,6 +44,12 @@ pub fn delete_song(app: AppHandle, id: String) -> Result<(), String> {
     library::delete(&dir, &id).map_err(library_message)
 }
 
+#[tauri::command]
+pub fn song_beatmap(app: AppHandle, id: String) -> Result<library::analysis::Beatmap, String> {
+    let dir = data_dir(&app)?;
+    library::beatmap(&dir, &id).map_err(library_message)
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewScore {

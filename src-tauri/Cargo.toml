@@ -22,6 +22,20 @@ thiserror = "2"
 # Parsear la URL a mano en un límite de confianza es de los errores más clásicos
 # que hay. Acá la dependencia se justifica sola.
 url = "2"
+# Decodificador en Rust puro. Se elige sobre los bindings de aubio/ffmpeg porque
+# no arrastra una toolchain de C, que en Windows es una pelea que no vale la
+# pena. Soporta AAC/m4a, que es el formato que le pedimos a yt-dlp.
+symphonia = { version = "0.5", default-features = false, features = [
+  # Cada formato necesita su CONTENEDOR y su CÓDEC por separado: `isomp4` lee
+  # el .m4a pero las muestras adentro las decodifica `aac`, y `wav` lee el
+  # contenedor pero las muestras son `pcm`. Habilitar uno solo compila igual y
+  # falla recién al abrir el archivo.
+  "isomp4",
+  "aac",
+  "wav",
+  "pcm",
+  "mp3",
+] }
 log = "0.4"
 tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"

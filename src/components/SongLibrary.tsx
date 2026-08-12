@@ -124,8 +124,8 @@ export function SongLibrary() {
       )}
 
       <p className="text-[12px] text-ink-muted">
-        Todavía no se pueden jugar: falta la detección de BPM y el beatmap. Por ahora esto
-        descarga el audio y lo guarda.
+        Procesar baja el audio y detecta el tempo. Todavía no se pueden jugar: falta la
+        reproducción sincronizada.
       </p>
     </div>
   )

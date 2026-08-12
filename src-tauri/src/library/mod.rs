@@ -4,6 +4,7 @@
 //! en la biblioteca y el audio sigue en el disco, se reusa y no se vuelve a
 //! descargar nada.
 
+pub mod analysis;
 pub mod source;
 pub mod store;
 mod ytdlp;
@@ -67,14 +68,27 @@ pub fn process(data_dir: &Path, raw_url: &str) -> Result<Processed, LibraryError
 
     let downloaded = ytdlp::download(raw_url, &dir, store::audio_stem())?;
 
+    // 4. Analizar es parte de procesar: si la canción queda sin beatmap, no se
+    //    puede jugar, y "está en la biblioteca pero no sirve" es peor que un
+    //    error claro acá.
+    let beatmap = analysis::analyze(&dir.join(&downloaded.file_name))?;
+    jsonstore::write_atomic(&store::beatmap_path(data_dir, &id), &beatmap)?;
+
     let song = Song {
         id,
         title: downloaded.title,
-        duration_sec: downloaded.duration_sec,
+        // La duración del audio decodificado le gana a la que reporta yt-dlp:
+        // es la que realmente va a sonar. Si por lo que sea quedó en cero, se
+        // usa la de los metadatos.
+        duration_sec: if beatmap.duration_ms > 0 {
+            beatmap.duration_ms / 1000
+        } else {
+            downloaded.duration_sec
+        },
         url: raw_url.trim().to_string(),
         audio_file: downloaded.file_name,
         added_at: store::now_seconds(),
-        bpm: None,
+        bpm: Some(beatmap.bpm),
     };
 
     let songs = store::upsert(&library.songs, song.clone());
@@ -84,6 +98,21 @@ pub fn process(data_dir: &Path, raw_url: &str) -> Result<Processed, LibraryError
     )?;
 
     Ok(Processed { song, reused: false })
+}
+
+/// Beatmap de una canción ya procesada.
+pub fn beatmap(data_dir: &Path, raw_id: &str) -> Result<analysis::Beatmap, LibraryError> {
+    if !is_safe_id(raw_id) {
+        return Err(LibraryError::OutsideDataDir);
+    }
+
+    let path = store::beatmap_path(data_dir, raw_id);
+    let raw = std::fs::read_to_string(&path).map_err(|_| LibraryError::NotFound)?;
+
+    serde_json::from_str(&raw).map_err(|e| {
+        log::error!("beatmap ilegible en {}: {e}", path.display());
+        LibraryError::Analysis
+    })
 }
 
 /// Borra una canción: los archivos **y** la entrada del índice.
