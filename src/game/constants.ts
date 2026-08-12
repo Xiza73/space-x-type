@@ -1,7 +1,7 @@
 /**
  * Constantes de calibración del juego.
  *
- * TODAS viven acá. Un número mágico suelto en el código es la razón por la que
+ * TODAS viven aquí. Un número mágico suelto en el código es la razón por la que
  * después nadie se anima a tocar la dificultad.
  *
  * Punto de partida: el prototipo de referencia. Se calibran jugando.
@@ -46,7 +46,7 @@ export const SCORING = {
  * Progresión del modo **arcade**: la barra se acelera y la secuencia mantiene
  * el largo. Una sola palanca de dificultad, legible para el jugador.
  *
- * Ojo: este modelo NO se traslada a canción. Ahí el tempo lo pone la canción y
+ * Atención: este modelo NO se traslada a canción. Ahí el tempo lo pone la canción y
  * la barra no puede acelerar, así que la dificultad sale del largo (ver `SONG`).
  */
 export const PROGRESSION = {
@@ -111,7 +111,7 @@ export const ROUND_START_TOLERANCE_MS = 100
  * letras y estirarse hasta la barra rompe el tipeo; ENTER queda al lado del
  * meñique derecho. En flechas pasa lo mismo al revés.
  *
- * El input se lee de acá, no con comparaciones de strings desparramadas: el día
+ * El input se lee de aquí, no con comparaciones de strings desparramadas: el día
  * que se puedan reasignar teclas, se cambia un solo lugar.
  */
 export const CONFIRM_KEYS: readonly string[] = [' ', 'Enter']

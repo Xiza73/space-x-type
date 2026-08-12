@@ -1,7 +1,7 @@
 //! Ranking local.
 //!
 //! Dominio puro más lectura/escritura en disco. Los comandos de Tauri viven en
-//! `commands.rs` y solo validan y delegan acá.
+//! `commands.rs` y solo validan y delegan aquí.
 
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};

@@ -2,7 +2,7 @@
 
 ## TypeScript
 
-- `strict: true`. Nada de `any` — si no sabés el tipo, `unknown` y estrechá.
+- `strict: true`. Nada de `any` — si no sabes el tipo, `unknown` y estrechá.
 - Tipos derivados, no duplicados: `type X = typeof algo` antes de reescribir a mano.
 - Sin default exports salvo que la herramienta lo exija.
 

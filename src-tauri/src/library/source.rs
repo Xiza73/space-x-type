@@ -1,6 +1,6 @@
 //! Validación de la URL de origen y extracción del id de video.
 //!
-//! Este módulo es **el límite de confianza** del proyecto: lo que salga de acá
+//! Este módulo es **el límite de confianza** del proyecto: lo que salga de aquí
 //! se le pasa a un proceso externo y se usa para armar rutas en el disco. Todo
 //! es puro y está testeado con entradas hostiles a propósito.
 
@@ -50,7 +50,7 @@ pub fn video_id(raw: &str) -> Result<String, SourceError> {
 
     let url = Url::parse(raw.trim()).map_err(|_| SourceError::Malformed)?;
 
-    // Solo https. `file:`, `data:` y `javascript:` quedan afuera por acá.
+    // Solo https. `file:`, `data:` y `javascript:` quedan afuera por aquí.
     if url.scheme() != "https" {
         return Err(SourceError::NotHttps);
     }

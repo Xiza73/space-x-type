@@ -105,7 +105,7 @@ const WORDS: Record<Language, readonly string[]> = { es: WORDS_ES, en: WORDS_EN 
  *
  * Este es el **eje 1** (qué se tipea) completo. Recibe cuántas teclas tiene que
  * producir, pero no sabe de dónde salió ese número: lo decide el eje 2. Si
- * alguna vez necesitás preguntar acá por la fuente del ritmo, los ejes se
+ * alguna vez necesitas preguntar aquí por la fuente del ritmo, los ejes se
  * mezclaron.
  */
 export function sequenceProvider(

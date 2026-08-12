@@ -42,7 +42,7 @@ SemVer: `fix` → patch · `feat` → minor · breaking → major.
 
 Commit: `chore(release): v<X.Y.Z>`
 
-**Además:** si cambió el esquema de `library.json`, subí su campo `version` y verificá que
+**Además:** si cambió el esquema de `library.json`, sube su campo `version` y verifica que
 exista el camino de migración. Una biblioteca que el usuario ya llenó **no se rompe ni se
 descarta** — se migra.
 
@@ -72,7 +72,7 @@ Salida en `src-tauri/target/release/bundle/`:
 | Linux | `.deb`, `.AppImage`, `.rpm` |
 
 **`tauri build` compila solo para la plataforma donde corre.** Tres sistemas operativos
-objetivo = tres máquinas, o CI con matriz de OS. No hay atajo por acá.
+objetivo = tres máquinas, o CI con matriz de OS. No hay atajo por aquí.
 
 ## 5. Verificación post-build
 
@@ -90,6 +90,6 @@ objetivo = tres máquinas, o CI con matriz de OS. No hay atajo por acá.
 - **Sin code signing.** Windows SmartScreen y Gatekeeper de macOS van a advertir. Aceptable
   para uso personal; si en algún momento se distribuye, hace falta certificado + notarización.
 - **Sin updater.** Las actualizaciones son manuales. Agregar el plugin `updater` de Tauri
-  recién cuando haya usuarios reales que actualizar.
+  solo cuando haya usuarios reales que actualizar.
 - **`yt-dlp` no viene empaquetado.** Es un requisito externo, y además cambia seguido: si se
   empaqueta una versión, queda vieja en semanas.

@@ -47,7 +47,7 @@ juego a velocidad.
 |---|---|---|
 | `magenta` | `#ff2e88` | Acción primaria, combo, vidas, `GREAT`. Variantes: `#ff5aa5` (claro), `#d61a77` / `#c1156b` (oscuro) |
 | `cyan` | `#29e5ff` | Selección, multiplicador, puntaje, `GOOD`, links |
-| `gold` | `#ffd23e` | **El centro de la zona y `PERFECT`.** Es el color de "acá tenés que apretar". Variantes: `#ffe27a`, `#ffc21e` |
+| `gold` | `#ffd23e` | **El centro de la zona y `PERFECT`.** Es el color de "presiona aquí". Variantes: `#ffe27a`, `#ffc21e` |
 | `red` | `#ff4d6d` | `MISS` |
 | `purple` | `#8b5cff` | `BAD` y el fondo psicodélico |
 
@@ -84,7 +84,7 @@ prenden los alcanzados y el actual brilla.
 
 **No lleva texto, y es a propósito.** Un `TECLAS 6` da el número, pero el número no es el
 dato: lo que el jugador necesita percibir de un vistazo es *dónde está en la curva* —si
-viene subiendo, si está cerca del techo, si acaba de reiniciar—. La forma ascendente dice
+viene subiendo, si está cerca del techo, si acaba de reiniciar—. La forma ascendente indica
 "esto se pone más difícil" sin una palabra, y la cantidad exacta ya está a la vista en las
 casillas.
 
@@ -92,7 +92,7 @@ casillas.
 
 Esta es la regla que ordena el HUD:
 
-> **Lo que usás para decidir va cerca de donde mirás. Lo que usás para saber cómo vas puede
+> **Lo que usas para decidir va cerca de donde miras. Lo que usas para saber cómo vas puede
 > estar lejos.**
 
 Durante la partida los ojos van de las casillas al marcador. La escalera de dificultad vive
