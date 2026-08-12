@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import type { Beatmap } from '../library/client'
 import { PROGRESSION, ROUND, SONG } from './constants'
-import { arcadeRhythm, keyCountFor, songRhythm } from './rhythm'
+import { arcadeRhythm, beatmapRhythm, keyCountFor, songRhythm } from './rhythm'
 
 describe('ritmo arcade', () => {
   const rhythm = arcadeRhythm(1)
@@ -45,6 +46,59 @@ describe('ritmo canción', () => {
   })
 
   it('mueve el largo de la secuencia, que es su única palanca', () => {
+    expect(rhythm.sequenceLength(0)).toBe(SONG.minKeys)
+    expect(rhythm.sequenceLength(SONG.hitsPerKeyStep)).toBe(SONG.minKeys + 1)
+  })
+})
+
+describe('ritmo con beatmap', () => {
+  const BEATMAP: Beatmap = {
+    version: 1,
+    bpm: 120,
+    firstBeatMs: 250,
+    durationMs: 180_000,
+    beatsPerRound: 4,
+    roundDurationMs: 2000,
+  }
+  const AUDIO_START = 10_000
+  const GRID = AUDIO_START + BEATMAP.firstBeatMs
+
+  const rhythm = beatmapRhythm(BEATMAP, AUDIO_START)
+
+  it('toma tempo y largo del beatmap', () => {
+    expect(rhythm.roundDurationMs(0)).toBe(BEATMAP.roundDurationMs)
+    expect(rhythm.totalDurationMs).toBe(BEATMAP.durationMs)
+  })
+
+  it('no mete pausa entre rondas: el hueco lo da la grilla', () => {
+    // Con pausa, la ronda siguiente se pasaría del compás y el juego se
+    // saltearía uno de cada dos.
+    expect(rhythm.interRoundPauseMs).toBe(0)
+  })
+
+  it('espera al primer beat antes de arrancar', () => {
+    expect(rhythm.roundStartMs(AUDIO_START)).toBe(GRID)
+    expect(rhythm.roundStartMs(GRID - 1)).toBe(GRID)
+  })
+
+  it('engancha cada ronda al compás siguiente', () => {
+    expect(rhythm.roundStartMs(GRID)).toBe(GRID)
+    // A mitad de la primera ronda, la próxima arranca al cerrar el compás.
+    expect(rhythm.roundStartMs(GRID + 1)).toBe(GRID + 2000)
+    expect(rhythm.roundStartMs(GRID + 1680)).toBe(GRID + 2000)
+    expect(rhythm.roundStartMs(GRID + 2000)).toBe(GRID + 2000)
+    expect(rhythm.roundStartMs(GRID + 2001)).toBe(GRID + 4000)
+  })
+
+  it('no acumula deriva por más rondas que pasen', () => {
+    // El punto de engancharse a la grilla: la ronda 100 sigue sobre el beat.
+    for (const round of [1, 10, 100, 1000]) {
+      const inside = GRID + round * 2000 + 900
+      expect(rhythm.roundStartMs(inside)).toBe(GRID + (round + 1) * 2000)
+    }
+  })
+
+  it('mueve el largo de la secuencia igual que el modo simulado', () => {
     expect(rhythm.sequenceLength(0)).toBe(SONG.minKeys)
     expect(rhythm.sequenceLength(SONG.hitsPerKeyStep)).toBe(SONG.minKeys + 1)
   })

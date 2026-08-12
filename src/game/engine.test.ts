@@ -33,7 +33,7 @@ const AT_PERFECT = 0.84
 const AT_GOOD = 0.75
 
 function newGame(lives: number | null = 3, durationMs: number | null = null): GameState {
-  return createGame({ lives, durationMs })
+  return createGame({ lives, durationMs, interRoundPauseMs: ROUND.interRoundPauseMs })
 }
 
 function typeAll(state: GameState): GameState {
@@ -251,6 +251,19 @@ describe('resolución de la ronda', () => {
     expect(state.combo).toBe(0)
     expect(state.maxCombo).toBe(2)
     expect(state.lives).toBe(2)
+  })
+})
+
+describe('pausa entre rondas', () => {
+  it('la pone la configuración, no una constante del motor', () => {
+    // Con un beatmap la pausa es cero: el hueco lo da la grilla del beat.
+    const sinPausa = createGame({ lives: null, durationMs: 60_000, interRoundPauseMs: 0 })
+    const started = startRound(sinPausa, SEQ, DUR, 0)
+    const resolved = pressSpace(typeAll(started), AT_PERFECT * DUR).state
+
+    expect(resolved.status).toBe('resolved')
+    // Sin pausa, el siguiente tick ya la deja lista para la próxima ronda.
+    expect(tick(resolved, resolved.resolvedAtMs).status).toBe('idle')
   })
 })
 

@@ -1,4 +1,4 @@
-import { PROGRESSION, ROUND, SCORING, TIMING } from './constants'
+import { PROGRESSION, SCORING, TIMING } from './constants'
 import { normalizeKey, type Step } from './sequence'
 
 export type Judgement = 'perfect' | 'great' | 'good' | 'bad' | 'miss'
@@ -110,6 +110,12 @@ export type GameConfig = {
   lives: number | null
   /** Cuánto dura la partida. `null` = hasta quedarse sin vidas (arcade). */
   durationMs: number | null
+  /**
+   * Cuánto se espera entre que se resuelve una ronda y arranca la siguiente.
+   * Lo pone la fuente del ritmo: con un beatmap es cero, porque el hueco lo da
+   * la grilla del beat.
+   */
+  interRoundPauseMs: number
 }
 
 export type GameState = {
@@ -335,7 +341,7 @@ export function tick(state: GameState, nowMs: number): GameState {
   if (state.status === 'round' && progressAt(state, nowMs) >= 1) {
     return resolve(state, 'miss', nowMs, { reason: 'timeout' })
   }
-  if (state.status === 'resolved' && nowMs - state.resolvedAtMs >= ROUND.interRoundPauseMs) {
+  if (state.status === 'resolved' && nowMs - state.resolvedAtMs >= state.config.interRoundPauseMs) {
     return { ...state, status: 'idle' }
   }
   return state

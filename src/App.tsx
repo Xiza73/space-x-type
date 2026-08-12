@@ -31,6 +31,7 @@ export function App() {
   const [language, setLanguage] = useState<Language>('es')
   const [rhythmMode, setRhythmMode] = useState<RhythmMode>('arcade')
   const [speed, setSpeed] = useState<SpeedId>(DEFAULTS.speed)
+  const [songId, setSongId] = useState<string | null>(null)
 
   useEffect(() => {
     if (started) return
@@ -59,6 +60,7 @@ export function App() {
         language={language}
         rhythmMode={rhythmMode}
         speed={speed}
+        songId={rhythmMode === 'song' ? songId : null}
         onMenu={() => setStarted(false)}
       />
     )
@@ -109,7 +111,8 @@ export function App() {
             />
           )}
 
-          {rhythmMode === 'song' && (
+          {/* Con una canción elegida la velocidad la pone el beatmap. */}
+          {rhythmMode === 'song' && songId === null && (
             <Toggle
               label="VELOCIDAD"
               value={speed}
@@ -120,7 +123,7 @@ export function App() {
           )}
         </div>
 
-        {rhythmMode === 'song' && <SongLibrary />}
+        {rhythmMode === 'song' && <SongLibrary selected={songId} onSelect={setSongId} />}
 
         <button
           onClick={() => void start()}
