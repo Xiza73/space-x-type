@@ -54,7 +54,7 @@ adornos pentatónicos) a BPM fijo. Cero assets, cero descargas.
 
 ```
 duración de ronda   dur = max(1500, (4200 - (nivel - 1) * 350) * speedScale)   [ms]
-nivel               nivel = 1 + floor(aciertos / 4)
+nivel               nivel = 1 + floor(rondas jugadas / 4)
 progreso            p = tiempo transcurrido / dur        ∈ [0, 1]
 
 PERFECT             0.795 <= p <= 0.885
@@ -82,16 +82,46 @@ degradado del riel deja de tener sentido — hay un test que lo impide.
 
 ### Qué hace cada escalón
 
-| | Puntos | Combo | Cuenta para progresión | Vida |
+| | Puntos | Combo | Vida | Espera después |
 |---|---|---|---|---|
-| `perfect` · `great` · `good` | sí | mantiene | sí | — |
-| `bad` | 20 | **corta** | **no** | — |
-| `miss` | 0 | corta | no | **−1** |
+| `perfect` · `great` · `good` | sí | mantiene | — | pausa normal |
+| `bad` | 20 | **corta** | — | pausa normal |
+| `miss` | 0 | corta | **−1** | pausa **+ una ronda entera** |
 
 **`bad` es el escalón que hace falta explicar.** Sumás algo y no perdés vida, pero se te
-corta el combo y no avanzás en la progresión. Sin eso sería un `good` flojo y no tendría
-razón de existir; con eso, es el aviso de que estás al borde **antes** de empezar a perder
-vidas. Un `miss` que llega sin advertencia se siente injusto.
+corta el combo. Sin eso sería un `good` flojo y no tendría razón de existir; con eso, es el
+aviso de que estás al borde **antes** de empezar a perder vidas. Un `miss` que llega sin
+advertencia se siente injusto.
+
+### La progresión cuenta rondas, no aciertos
+
+Tres rondas suben un escalón **se ganen o no**: tres aciertos o dos aciertos y un fallo dan
+lo mismo. Si contara aciertos, al jugador que falla se le congelaría la dificultad justo
+cuando necesita que la partida avance, y una mala racha lo dejaría estancado en el piso.
+
+### La ronda de anticipo
+
+Después de un fallo —y al volver de una pausa— no se juega la ronda siguiente: se muestra
+**en anticipo**. La secuencia se ve al 35% de opacidad y el marcador corre igual, pero no se
+acepta input. Al terminar, esa misma secuencia se convierte en la ronda de verdad.
+
+Cubre dos cosas de un saque:
+
+- **Frena el encadenado de fallos.** Machacar espacio después de fallar se comería las tres
+  vidas sin ninguna chance de reaccionar: el fallo se vuelve autoinfligido y el juego se
+  siente roto.
+- **Le dice al jugador qué viene y cuándo.** Un hueco muerto se siente como que el juego se
+  colgó. Con la secuencia a la vista y la barra corriendo, sabe exactamente qué va a tener
+  que tipear y en qué momento arranca.
+
+Volver de una pausa usa el mismo mecanismo, sin cuenta regresiva: un solo lenguaje visual
+para "esperá, ya volvés a jugar".
+
+### La cuenta regresiva va sobre la música
+
+Al empezar, la canción arranca **primero** y la cuenta de tres segundos corre encima. La
+intro suena mientras el jugador se acomoda, en vez de sonar en el vacío. Lo que espera es el
+juego, no el audio: `config.startsAtMs` retiene el arranque de las rondas.
 
 ### Reglas de input
 
@@ -117,8 +147,8 @@ Consecuencia directa: **el modelo de dificultad de arcade no se traslada acá.**
 es fija y la única palanca es **cuántas teclas** tiene la secuencia.
 
 ```
-teclas       min + (floor(aciertos / hitsPerKeyStep) mod (max - min + 1))
-             piso 3 · techo 8 · sube cada 3 aciertos
+teclas       min + (floor(rondas / roundsPerKeyStep) mod (max - min + 1))
+             piso 3 · techo 8 · sube cada 3 rondas jugadas
 partida      dura un tiempo fijo
 vidas        NINGUNA — `config.lives = null`
 velocidad    fija; en la simulada la elige el jugador, en la real la pone el beatmap

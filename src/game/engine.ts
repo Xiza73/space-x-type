@@ -7,16 +7,18 @@ export type Judgement = 'perfect' | 'great' | 'good' | 'bad' | 'miss'
  * Qué hace cada escalón con el estado.
  *
  * `bad` es el escalón interesante: **sumás puntos y no perdés vida, pero se te
- * corta el combo y no cuenta para la progresión.** Sin eso sería un `good`
- * flojo y no tendría razón de existir; con eso, es el aviso de que estás al
- * borde antes de empezar a perder vidas.
+ * corta el combo.** Sin eso sería un `good` flojo y no tendría razón de
+ * existir; con eso, es el aviso de que estás al borde antes de empezar a
+ * perder vidas.
+ *
+ * La progresión no figura acá: avanza con **toda** ronda jugada, se gane o no.
  */
-const RULES: Record<Judgement, { score: number; keepsCombo: boolean; counts: boolean; costsLife: boolean }> = {
-  perfect: { score: SCORING.perfect, keepsCombo: true, counts: true, costsLife: false },
-  great: { score: SCORING.great, keepsCombo: true, counts: true, costsLife: false },
-  good: { score: SCORING.good, keepsCombo: true, counts: true, costsLife: false },
-  bad: { score: SCORING.bad, keepsCombo: false, counts: false, costsLife: false },
-  miss: { score: 0, keepsCombo: false, counts: false, costsLife: true },
+const RULES: Record<Judgement, { score: number; keepsCombo: boolean; costsLife: boolean }> = {
+  perfect: { score: SCORING.perfect, keepsCombo: true, costsLife: false },
+  great: { score: SCORING.great, keepsCombo: true, costsLife: false },
+  good: { score: SCORING.good, keepsCombo: true, costsLife: false },
+  bad: { score: SCORING.bad, keepsCombo: false, costsLife: false },
+  miss: { score: 0, keepsCombo: false, costsLife: true },
 }
 
 /**
@@ -93,11 +95,13 @@ export type KeyResult = 'advance' | 'reset' | 'ignored'
 
 /**
  * - `idle`     listo para arrancar la próxima ronda
+ * - `preview`  se ve la secuencia que viene y el marcador corre, pero **no se
+ *              acepta input**: es la espera después de un fallo o de una pausa
  * - `round`    el marcador corre y se acepta input
  * - `resolved` ya se juzgó, corriendo la pausa entre rondas
  * - `over`     sin vidas
  */
-export type Status = 'idle' | 'round' | 'resolved' | 'over'
+export type Status = 'idle' | 'preview' | 'round' | 'resolved' | 'over'
 
 export type GameConfig = {
   /**
@@ -110,6 +114,11 @@ export type GameConfig = {
   lives: number | null
   /** Cuánto dura la partida. `null` = hasta quedarse sin vidas (arcade). */
   durationMs: number | null
+  /**
+   * Antes de este instante no arranca ninguna ronda. Es lo que sostiene la
+   * cuenta regresiva mientras la canción ya está sonando.
+   */
+  startsAtMs: number
   /**
    * Cuánto se espera entre que se resuelve una ronda y arranca la siguiente.
    * Lo pone la fuente del ritmo: con un beatmap es cero, porque el hueco lo da
@@ -125,7 +134,11 @@ export type GameState = {
   readonly combo: number
   readonly maxCombo: number
   readonly lives: number
-  readonly hits: number
+  /**
+   * Rondas jugadas, se hayan ganado o no. Es lo que mueve la progresión: la
+   * dificultad avanza con el tiempo de juego, no con el acierto.
+   */
+  readonly rounds: number
   readonly level: number
   readonly sequence: readonly Step[]
   /** Cuántos pasos correctos lleva tipeados el jugador. */
@@ -133,14 +146,22 @@ export type GameState = {
   readonly roundStartMs: number
   readonly roundDurationMs: number
   readonly resolvedAtMs: number
+  /**
+   * Lo antes que puede arrancar la próxima ronda.
+   *
+   * Un `miss` suma una ronda entera de espera: si no, machacar espacio después
+   * de fallar encadena fallos, y el jugador se come tres vidas sin haber tenido
+   * ninguna chance de reaccionar.
+   */
+  readonly resumeAtMs: number
   readonly lastJudgement: Judgement | null
   /** Cuándo arrancó la primera ronda. `null` hasta que arranca. */
   readonly sessionStartMs: number | null
   readonly stats: Stats
 }
 
-export function levelFor(hits: number): number {
-  return 1 + Math.floor(hits / PROGRESSION.hitsPerLevel)
+export function levelFor(rounds: number): number {
+  return 1 + Math.floor(rounds / PROGRESSION.roundsPerLevel)
 }
 
 export function multiplierFor(combo: number): number {
@@ -176,13 +197,14 @@ export function createGame(config: GameConfig): GameState {
     combo: 0,
     maxCombo: 0,
     lives: config.lives ?? 0,
-    hits: 0,
+    rounds: 0,
     level: 1,
     sequence: [],
     index: 0,
     roundStartMs: 0,
     roundDurationMs: 0,
     resolvedAtMs: 0,
+    resumeAtMs: config.startsAtMs,
     lastJudgement: null,
     sessionStartMs: null,
     stats: NO_STATS,
@@ -216,6 +238,51 @@ export function startRound(
   }
 }
 
+/**
+ * Descarta la ronda en curso sin puntuarla ni contarla.
+ *
+ * Se usa al volver de una pausa: la barra vuelve a empezar de cero. Retomarla a
+ * mitad de camino sería injusto en los dos sentidos —el jugador perdió el
+ * contexto visual, o se congeló justo antes de la zona—.
+ */
+export function abortRound(state: GameState, nowMs: number): GameState {
+  if (state.status !== 'round' && state.status !== 'preview') return state
+  return {
+    ...state,
+    status: 'idle',
+    sequence: [],
+    index: 0,
+    resumeAtMs: nowMs,
+  }
+}
+
+/**
+ * Arranca una ronda de **anticipo**: se ve la secuencia que viene y el marcador
+ * corre, pero no se acepta input.
+ *
+ * Es la espera después de un fallo y al volver de una pausa. Un hueco muerto
+ * deja al jugador sin saber cuándo vuelve a jugar; con el anticipo ve la
+ * secuencia de antemano y ve la barra corriendo, así que sabe exactamente
+ * cuándo tiene que empezar a tipear.
+ */
+export function startPreview(
+  state: GameState,
+  sequence: readonly Step[],
+  durationMs: number,
+  startAtMs: number,
+): GameState {
+  if (state.status !== 'idle') return state
+  return {
+    ...state,
+    status: 'preview',
+    sequence,
+    index: 0,
+    roundStartMs: startAtMs,
+    roundDurationMs: durationMs,
+    sessionStartMs: state.sessionStartMs ?? startAtMs,
+  }
+}
+
 /** Milisegundos que quedan de partida. `null` si la partida no termina por tiempo. */
 export function remainingMs(state: GameState, nowMs: number): number | null {
   const total = state.config.durationMs
@@ -238,7 +305,8 @@ function resolve(
   const mult = multiplierFor(state.combo)
   const rule = RULES[judgement]
   const combo = rule.keepsCombo ? state.combo + 1 : 0
-  const hits = rule.counts ? state.hits + 1 : state.hits
+  // Toda ronda cuenta para la progresión, se haya ganado o no.
+  const rounds = state.rounds + 1
   const hasLives = state.config.lives !== null
   const lives = rule.costsLife && hasLives ? state.lives - 1 : state.lives
   const gained = rule.score
@@ -249,10 +317,13 @@ function resolve(
     score: state.score + gained * mult,
     combo,
     maxCombo: Math.max(state.maxCombo, combo),
-    hits,
+    rounds,
     lives,
-    level: levelFor(hits),
+    level: levelFor(rounds),
     resolvedAtMs: nowMs,
+    // Fallar no suma espera acá: la espera es la ronda de anticipo que arma el
+    // loop, y que además le muestra al jugador lo que viene.
+    resumeAtMs: nowMs + state.config.interRoundPauseMs,
     lastJudgement: judgement,
     stats: countRound(state.stats, judgement, detail, state.roundDurationMs),
   }
@@ -338,10 +409,21 @@ export function tick(state: GameState, nowMs: number): GameState {
   if (state.status !== 'over' && remainingMs(state, nowMs) === 0) {
     return { ...state, status: 'over' }
   }
+  // El anticipo se convierte solo en la ronda de verdad, y arranca justo donde
+  // terminó: así la promesa que se le mostró al jugador se cumple sobre el beat.
+  if (state.status === 'preview' && progressAt(state, nowMs) >= 1) {
+    return {
+      ...state,
+      status: 'round',
+      index: 0,
+      roundStartMs: state.roundStartMs + state.roundDurationMs,
+    }
+  }
+
   if (state.status === 'round' && progressAt(state, nowMs) >= 1) {
     return resolve(state, 'miss', nowMs, { reason: 'timeout' })
   }
-  if (state.status === 'resolved' && nowMs - state.resolvedAtMs >= state.config.interRoundPauseMs) {
+  if (state.status === 'resolved' && nowMs >= state.resumeAtMs) {
     return { ...state, status: 'idle' }
   }
   return state

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Beatmap } from '../library/client'
-import { PROGRESSION, ROUND, SONG } from './constants'
+import { PROGRESSION, ROUND, ROUND_START_TOLERANCE_MS, SONG } from './constants'
 import { arcadeRhythm, beatmapRhythm, keyCountFor, songRhythm } from './rhythm'
 
 describe('ritmo arcade', () => {
@@ -9,7 +9,7 @@ describe('ritmo arcade', () => {
 
   it('arranca en la duración base y acorta 350ms por nivel', () => {
     expect(rhythm.roundDurationMs(0)).toBe(PROGRESSION.baseDurationMs)
-    expect(rhythm.roundDurationMs(PROGRESSION.hitsPerLevel)).toBe(
+    expect(rhythm.roundDurationMs(PROGRESSION.roundsPerLevel)).toBe(
       PROGRESSION.baseDurationMs - PROGRESSION.durationStepMs,
     )
   })
@@ -47,7 +47,7 @@ describe('ritmo canción', () => {
 
   it('mueve el largo de la secuencia, que es su única palanca', () => {
     expect(rhythm.sequenceLength(0)).toBe(SONG.minKeys)
-    expect(rhythm.sequenceLength(SONG.hitsPerKeyStep)).toBe(SONG.minKeys + 1)
+    expect(rhythm.sequenceLength(SONG.roundsPerKeyStep)).toBe(SONG.minKeys + 1)
   })
 })
 
@@ -96,19 +96,37 @@ describe('ritmo con beatmap', () => {
    * `requestAnimationFrame`: en saltos de ~16ms que **nunca** caen sobre un
    * múltiplo exacto del compás.
    */
-  function simulateLoop(source: typeof rhythm, from: number, to: number, frameMs: number) {
+  function simulateLoop(
+    source: typeof rhythm,
+    from: number,
+    to: number,
+    frameMs: number,
+    /** Momentos en los que el juego todavía está esperando (p. ej. tras un fallo). */
+    busyUntil: (now: number) => number = () => 0,
+  ) {
     const starts: number[] = []
     let lastRoundStart = 0
 
     for (let now = from; now <= to; now += frameMs) {
+      if (now < busyUntil(now)) continue
       const slot = source.roundStartMs(now)
-      if (now >= slot && slot > lastRoundStart) {
+      const late = now - slot
+      if (now >= slot && slot > lastRoundStart && late <= ROUND_START_TOLERANCE_MS) {
         starts.push(slot)
         lastRoundStart = slot
       }
     }
     return starts
   }
+
+  it('salta el compás cuando la espera de un fallo lo dejó atrás', () => {
+    // Un fallo suma una ronda de espera: el compás que quedó en el medio ya no
+    // sirve, porque arrancar ahí daría una ronda nacida por la mitad.
+    const esperaHasta = GRID + 3680
+    const starts = simulateLoop(rhythm, AUDIO_START, GRID + 6100, 16.7, () => esperaHasta)
+
+    expect(starts).toEqual([GRID + 4000, GRID + 6000])
+  })
 
   it('arranca una ronda por compás con frames realistas', () => {
     // 16.7ms es el frame de 60fps: elegido a propósito para que jamás coincida
@@ -144,25 +162,25 @@ describe('ritmo con beatmap', () => {
 
   it('mueve el largo de la secuencia igual que el modo simulado', () => {
     expect(rhythm.sequenceLength(0)).toBe(SONG.minKeys)
-    expect(rhythm.sequenceLength(SONG.hitsPerKeyStep)).toBe(SONG.minKeys + 1)
+    expect(rhythm.sequenceLength(SONG.roundsPerKeyStep)).toBe(SONG.minKeys + 1)
   })
 })
 
 describe('keyCountFor', () => {
   it('arranca en el piso', () => {
     expect(keyCountFor(0)).toBe(SONG.minKeys)
-    expect(keyCountFor(SONG.hitsPerKeyStep - 1)).toBe(SONG.minKeys)
+    expect(keyCountFor(SONG.roundsPerKeyStep - 1)).toBe(SONG.minKeys)
   })
 
   it('sube de a una tecla', () => {
-    expect(keyCountFor(SONG.hitsPerKeyStep)).toBe(SONG.minKeys + 1)
-    expect(keyCountFor(SONG.hitsPerKeyStep * 2)).toBe(SONG.minKeys + 2)
+    expect(keyCountFor(SONG.roundsPerKeyStep)).toBe(SONG.minKeys + 1)
+    expect(keyCountFor(SONG.roundsPerKeyStep * 2)).toBe(SONG.minKeys + 2)
   })
 
   it('llega al techo y vuelve al piso — diente de sierra', () => {
     const span = SONG.maxKeys - SONG.minKeys + 1
-    expect(keyCountFor(SONG.hitsPerKeyStep * (span - 1))).toBe(SONG.maxKeys)
-    expect(keyCountFor(SONG.hitsPerKeyStep * span)).toBe(SONG.minKeys)
+    expect(keyCountFor(SONG.roundsPerKeyStep * (span - 1))).toBe(SONG.maxKeys)
+    expect(keyCountFor(SONG.roundsPerKeyStep * span)).toBe(SONG.minKeys)
   })
 
   it('nunca se sale del rango, por lejos que llegues', () => {
