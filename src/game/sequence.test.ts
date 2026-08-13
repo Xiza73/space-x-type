@@ -9,6 +9,8 @@ import {
   makeWordSequence,
   normalizeKey,
   sequenceProvider,
+  NO_REPEAT_WINDOW,
+  type Step,
 } from './sequence'
 
 /** Reloj de azar falso: devuelve los valores dados, en orden. */
@@ -140,6 +142,45 @@ describe('sequenceProvider', () => {
       for (const step of next(6)) {
         expect(normalizeKey(step.key)).toBe(step.key)
       }
+    }
+  })
+})
+
+describe('sin repeticiones cercanas', () => {
+  /** Misma identidad que usa el módulo: las teclas, no los objetos. */
+  const clave = (sequence: readonly Step[]) => sequence.map((s) => s.key).join('')
+
+  it('no repite una secuencia dentro de una tanda de tres', () => {
+    // Repetir dentro de una tanda corta se lee como que el juego se colgó o te
+    // está regalando la ronda.
+    // Tres flechas = 64 combinaciones: sin la protección, en 200 rondas
+    // aparecen repeticiones cercanas casi con certeza.
+    const next = sequenceProvider('arrows', 'es')
+    const vistas: string[] = []
+
+    for (let i = 0; i < 200; i++) {
+      const actual = clave(next(3))
+      expect(vistas.slice(-NO_REPEAT_WINDOW)).not.toContain(actual)
+      vistas.push(actual)
+    }
+  })
+
+  it('vuelve a permitir una secuencia pasada la ventana', () => {
+    // La ventana es corta a propósito: cuando la curva vuelve a ese largo el
+    // jugador ya no se acuerda, y recordar más achicaría el repertorio.
+    const next = sequenceProvider('words', 'es')
+    const vistas = Array.from({ length: 400 }, () => clave(next(3)))
+
+    expect(new Set(vistas).size).toBeLessThan(vistas.length)
+  })
+
+  it('no se cuelga cuando el repertorio es más chico que la ventana', () => {
+    // Con longitudes donde hay muy pocas palabras, insistir hasta encontrar una
+    // distinta sería un bucle infinito. Un juego trabado es peor que una
+    // repetición, así que reintenta un número acotado de veces y sigue.
+    const next = sequenceProvider('words', 'en')
+    for (let i = 0; i < 100; i++) {
+      expect(next(8).length).toBe(8)
     }
   })
 })

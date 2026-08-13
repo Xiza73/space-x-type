@@ -27,6 +27,12 @@ pub enum LibraryError {
     OutsideDataDir,
     #[error("no se pudo descargar el audio")]
     Download,
+    #[error("la canción dura {seconds} s: el mínimo es {min} s")]
+    TooShort { seconds: u32, min: u32 },
+    #[error("la canción dura {seconds} s: el máximo es {max} s")]
+    TooLong { seconds: u32, max: u32 },
+    #[error("no se pudo saber cuánto dura: ¿es una transmisión en vivo?")]
+    UnknownDuration,
     #[error("no se pudo analizar el audio")]
     Analysis,
     #[error("esa canción no está en la biblioteca")]

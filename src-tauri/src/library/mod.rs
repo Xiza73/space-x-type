@@ -70,14 +70,25 @@ pub fn process(data_dir: &Path, raw_url: &str) -> Result<Processed, LibraryError
         }
     }
 
-    // 3. La carpeta se arma con el id ya validado, y se verifica igual.
+    // 3. La duración se valida **antes** de bajar el archivo. Descargar dos
+    //    horas de audio para después decir "es muy largo" es exactamente lo que
+    //    no hay que hacer, y cuesta solo una llamada corta averiguarlo.
+    let seconds = ytdlp::probe_duration(raw_url)?;
+    if seconds < ytdlp::MIN_DURATION_SEC {
+        return Err(LibraryError::TooShort { seconds, min: ytdlp::MIN_DURATION_SEC });
+    }
+    if seconds > ytdlp::MAX_DURATION_SEC {
+        return Err(LibraryError::TooLong { seconds, max: ytdlp::MAX_DURATION_SEC });
+    }
+
+    // 4. La carpeta se arma con el id ya validado, y se verifica igual.
     let dir = store::song_dir(data_dir, &id);
     std::fs::create_dir_all(&dir)?;
     store::ensure_inside(data_dir, &dir)?;
 
     let downloaded = ytdlp::download(raw_url, &dir, store::audio_stem())?;
 
-    // 4. Analizar es parte de procesar: si la canción queda sin beatmap, no se
+    // 5. Analizar es parte de procesar: si la canción queda sin beatmap, no se
     //    puede jugar, y "está en la biblioteca pero no sirve" es peor que un
     //    error claro aquí.
     let beatmap = analysis::analyze(&dir.join(&downloaded.file_name))?;

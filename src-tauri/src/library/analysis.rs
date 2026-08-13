@@ -18,8 +18,11 @@ use super::store::LibraryError;
 const FRAME: usize = 1024;
 const HOP: usize = 512;
 
-/// Rango de tempo que se busca. Fuera de aquí se asume error de octava: una
-/// canción de 60 BPM se detecta como 120, y para el juego está bien.
+/// Rango de tempo que se busca. Fuera de aquí se dobla o se parte a la mitad:
+/// una canción de 60 BPM se detecta como 120, y para el juego está bien.
+///
+/// Adentro del rango, elegir entre un tempo y su mitad lo decide
+/// `octave_weight`, no la autocorrelación sola — que no puede.
 const MIN_BPM: f32 = 70.0;
 const MAX_BPM: f32 = 180.0;
 
@@ -197,15 +200,49 @@ pub fn estimate_bpm(novelty: &[f32], frames_per_sec: f32) -> f32 {
 
     for lag in min_lag..=max_lag {
         let overlap = centered.len() - lag;
-        let sum: f32 = (0..overlap).map(|i| centered[i] * centered[i + lag]).sum();
-        let score = sum / overlap as f32;
-        if score > best_score {
-            best_score = score;
+
+        // Se divide por el largo TOTAL, no por el solapamiento. Dividir por el
+        // solapamiento —que se achica a medida que crece el lag— infla el
+        // puntaje de los lags largos, o sea que el estimador queda sesgado
+        // hacia los tempos lentos por pura aritmética.
+        let r = (0..overlap).map(|i| centered[i] * centered[i + lag]).sum::<f32>()
+            / centered.len() as f32;
+
+        let weighted = r * octave_weight(60.0 * frames_per_sec / lag as f32);
+        if weighted > best_score {
+            best_score = weighted;
             best_lag = lag;
         }
     }
 
     60.0 * frames_per_sec / best_lag as f32
+}
+
+/// Tempo que se prefiere cuando hay que desempatar entre octavas.
+const PREFERRED_BPM: f32 = 121.0;
+/// Ancho de la preferencia, en logaritmos. Más chico = más terco con el valor.
+///
+/// **Estos dos números salieron de un barrido, no de una corazonada.** El test
+/// `barrido::buscar_parametros` recorre el plano (preferido, ancho) contra todas
+/// las señales de prueba y devuelve el par con más aciertos. Cuando una canción
+/// real salga mal, se agrega como caso y se vuelve a correr.
+const PREFERRED_SPREAD: f32 = 0.32;
+
+/// Peso perceptual del tempo, para resolver el **error de octava**.
+///
+/// Un tren de pulsos a 150 BPM se autocorrelaciona igual de bien a 75: cada dos
+/// golpes también hay un período. La matemática sola no puede elegir, y sin un
+/// criterio extra el estimador devolvía la mitad del tempo real — que era
+/// jugable mientras la velocidad de la barra se elegía aparte, y dejó de serlo
+/// cuando el BPM pasó a ser la velocidad.
+///
+/// El criterio es el mismo que usa una persona al marcar el pulso con el pie:
+/// entre dos tempos que encajan, se elige el más cercano a ~125 BPM. Es una
+/// campana en escala logarítmica, porque las octavas son multiplicativas: 60 y
+/// 240 están igual de lejos de 120.
+fn octave_weight(bpm: f32) -> f32 {
+    let distance = (bpm / PREFERRED_BPM).ln() / PREFERRED_SPREAD;
+    (-0.5 * distance * distance).exp()
 }
 
 /// Fase del primer beat: el desplazamiento que hace que un tren de pulsos al
@@ -334,6 +371,11 @@ fn decode(path: &Path) -> Result<(Vec<f32>, u32), LibraryError> {
 }
 
 #[cfg(test)]
+pub mod tests_support {
+    pub use super::tests::{backbeat_track as backbeat, ballad_track as ballad, click_track as click};
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -341,7 +383,7 @@ mod tests {
 
     /// Pista de clicks a un tempo conocido: la forma de testear DSP sin
     /// archivos ni fixtures.
-    fn click_track(bpm: f32, seconds: f32, offset_sec: f32) -> Vec<f32> {
+    pub fn click_track(bpm: f32, seconds: f32, offset_sec: f32) -> Vec<f32> {
         let total = (seconds * SR as f32) as usize;
         let mut out = vec![0.0f32; total];
         let period = 60.0 / bpm * SR as f32;
@@ -390,6 +432,123 @@ mod tests {
                 "esperaba {esperado}, detectó {detectado}"
             );
         }
+    }
+
+    /// Patrón de bombo y caja: golpes fuertes y flojos alternados.
+    ///
+    /// Es como suena casi toda la música popular, y es **la trampa clásica del
+    /// error de octava**: los golpes fuertes solos ya forman un pulso a la
+    /// mitad del tempo, así que la autocorrelación encaja igual de bien ahí.
+    pub fn backbeat_track(bpm: f32, seconds: f32) -> Vec<f32> {
+        let total = (seconds * SR as f32) as usize;
+        let mut out = vec![0.0f32; total];
+        let period = 60.0 / bpm * SR as f32;
+
+        let mut position = 0.0f32;
+        let mut beat = 0usize;
+        while (position as usize) < total {
+            let start = position as usize;
+            let len = 300.min(total - start);
+            let strength = if beat % 2 == 0 { 1.0 } else { 0.35 };
+            for k in 0..len {
+                let decay = 1.0 - k as f32 / len as f32;
+                out[start + k] = strength * decay * decay * (k as f32 * 0.35).sin();
+            }
+            position += period;
+            beat += 1;
+        }
+        out
+    }
+
+    #[test]
+    fn no_se_come_la_mitad_del_tempo_en_un_patron_con_acentos() {
+        // El caso real que se rompió: una canción rápida se procesaba a 75 BPM.
+        // Mientras la velocidad de la barra se elegía aparte no molestaba;
+        // cuando el BPM pasó a ser la velocidad, quedó lentísima.
+        let frames_per_sec = SR as f32 / HOP as f32;
+
+        for esperado in [128.0f32, 140.0, 150.0, 160.0, 174.0] {
+            let novelty = novelty(&backbeat_track(esperado, 30.0), FRAME, HOP);
+            let detectado = estimate_bpm(&novelty, frames_per_sec);
+
+            assert!(
+                (detectado - esperado).abs() < 4.0,
+                "esperaba {esperado}, detectó {detectado} (¿mitad de tempo?)"
+            );
+        }
+    }
+
+    #[test]
+    fn la_preferencia_de_octava_es_simetrica_en_logaritmo() {
+        // 60 y 250 tienen que estar igual de lejos de 125: las octavas son
+        // multiplicativas, no aditivas. Si esto se hace lineal, la preferencia
+        // se corre hacia los tempos rápidos y aparece el error al revés.
+        let mitad = octave_weight(PREFERRED_BPM / 2.0);
+        let doble = octave_weight(PREFERRED_BPM * 2.0);
+        assert!((mitad - doble).abs() < 1e-6, "mitad {mitad}, doble {doble}");
+        assert!(octave_weight(PREFERRED_BPM) > mitad);
+        assert!((octave_weight(PREFERRED_BPM) - 1.0).abs() < 1e-6);
+    }
+
+    /// Balada: golpes en el beat y **corcheas más flojas en el medio**.
+    ///
+    /// Es la trampa del error de octava hacia arriba, y el caso que se rompió de
+    /// verdad: "Somewhere Only We Know" —que va a unos 86 BPM— se procesó a
+    /// 172.27, el doble exacto. Con la barra siguiendo al tempo, quedaba al
+    /// doble de velocidad de lo que suena.
+    pub fn ballad_track(bpm: f32, seconds: f32) -> Vec<f32> {
+        let total = (seconds * SR as f32) as usize;
+        let mut out = vec![0.0f32; total];
+        let half = 30.0 / bpm * SR as f32;
+
+        let mut position = 0.0f32;
+        let mut step = 0usize;
+        while (position as usize) < total {
+            let start = position as usize;
+            let len = 300.min(total - start);
+            // Las corcheas suenan, pero bastante más flojas que el pulso.
+            let strength = if step % 2 == 0 { 1.0 } else { 0.5 };
+            for k in 0..len {
+                let decay = 1.0 - k as f32 / len as f32;
+                out[start + k] = strength * decay * decay * (k as f32 * 0.35).sin();
+            }
+            position += half;
+            step += 1;
+        }
+        out
+    }
+
+    /// > **Límite conocido: abajo de ~84 BPM esto no se puede resolver.**
+    /// > Una balada de 72 con corcheas y un tema de 144 con acentos alternados
+    /// > son la *misma señal* —pulsos fuerte/flojo a 144 por minuto— con la
+    /// > respuesta correcta invertida. Ninguna preferencia de tempo puede
+    /// > acertarle a las dos, y no es un defecto de esta implementación: es
+    /// > ambigüedad real. Para eso está la corrección manual en la biblioteca.
+    #[test]
+    fn no_dobla_el_tempo_de_una_balada_con_corcheas() {
+        let frames_per_sec = SR as f32 / HOP as f32;
+
+        for esperado in [86.0f32, 95.0, 110.0] {
+            let novelty = novelty(&ballad_track(esperado, 40.0), FRAME, HOP);
+            let detectado = estimate_bpm(&novelty, frames_per_sec);
+
+            assert!(
+                (detectado - esperado).abs() < 4.0,
+                "esperaba {esperado}, detectó {detectado} (¿tempo al doble?)"
+            );
+        }
+    }
+
+    #[test]
+    fn el_tempo_lento_de_verdad_sigue_saliendo_lento() {
+        // La preferencia por 125 no puede convertirse en "todo es 125": una
+        // balada tiene que salir lenta, o el ajuste habría cambiado un sesgo
+        // por el opuesto.
+        let frames_per_sec = SR as f32 / HOP as f32;
+        let novelty = novelty(&click_track(80.0, 30.0, 0.0), FRAME, HOP);
+        let detectado = estimate_bpm(&novelty, frames_per_sec);
+
+        assert!((detectado - 80.0).abs() < 4.0, "detectó {detectado}");
     }
 
     #[test]
@@ -607,5 +766,72 @@ mod tests {
         assert!(matches!(analyze(&path), Err(LibraryError::Analysis)));
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod barrido {
+    use super::tests_support::*;
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn buscar_parametros() {
+        let fps = 44_100.0 / HOP as f32;
+        let casos: Vec<(f32, Vec<f32>)> = vec![
+            (128.0, backbeat(128.0, 30.0)),
+            (140.0, backbeat(140.0, 30.0)),
+            (150.0, backbeat(150.0, 30.0)),
+            (160.0, backbeat(160.0, 30.0)),
+            (174.0, backbeat(174.0, 30.0)),
+            (86.0, ballad(86.0, 40.0)),
+            (95.0, ballad(95.0, 40.0)),
+            (110.0, ballad(110.0, 40.0)),
+            (80.0, click(80.0, 30.0, 0.0)),
+            (105.0, click(105.0, 30.0, 0.0)),
+            (120.0, click(120.0, 30.0, 0.0)),
+        ];
+        let novs: Vec<(f32, Vec<f32>)> =
+            casos.iter().map(|(b, s)| (*b, novelty(s, FRAME, HOP))).collect();
+
+        let mut mejor = (0usize, 0.0f32, 0.0f32, Vec::new());
+        for pi in 0..40 {
+            let pref = 95.0 + pi as f32 * 2.0;
+            for si in 0..30 {
+                let spread = 0.20 + si as f32 * 0.02;
+                let mut ok = 0;
+                let mut fallos = Vec::new();
+                for (esperado, nov) in &novs {
+                    let d = estimate_with(nov, fps, pref, spread);
+                    if (d - esperado).abs() < 4.0 { ok += 1 } else { fallos.push((*esperado, d)) }
+                }
+                if ok > mejor.0 {
+                    mejor = (ok, pref, spread, fallos);
+                }
+            }
+        }
+        println!("
+MEJOR: {}/{} aciertos con PREFERRED={} SPREAD={:.2}",
+                 mejor.0, novs.len(), mejor.1, mejor.2);
+        for (esperado, detectado) in &mejor.3 {
+            println!("   falla: esperaba {esperado}, detectó {detectado:.1}");
+        }
+    }
+
+    fn estimate_with(nov: &[f32], fps: f32, pref: f32, spread: f32) -> f32 {
+        let mean = nov.iter().sum::<f32>() / nov.len() as f32;
+        let c: Vec<f32> = nov.iter().map(|v| v - mean).collect();
+        let min_lag = (60.0 * fps / MAX_BPM).round().max(1.0) as usize;
+        let max_lag = ((60.0 * fps / MIN_BPM).round() as usize).min(c.len() / 2);
+        let (mut best_lag, mut best) = (min_lag, f32::MIN);
+        for lag in min_lag..=max_lag {
+            let ov = c.len() - lag;
+            let r = (0..ov).map(|i| c[i] * c[i + lag]).sum::<f32>() / c.len() as f32;
+            let bpm = 60.0 * fps / lag as f32;
+            let d = (bpm / pref).ln() / spread;
+            let w = (-0.5 * d * d).exp();
+            if r * w > best { best = r * w; best_lag = lag }
+        }
+        60.0 * fps / best_lag as f32
     }
 }

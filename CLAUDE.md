@@ -70,7 +70,19 @@ reasignación de teclas, móvil.
 | Lint | **oxlint** | Viene con el template de Vite. Sin ESLint |
 | Bundler | **Vite** | Estándar de Tauri v2 |
 
-**Requisito externo:** `yt-dlp` debe estar en el `PATH`.
+**Requisitos externos:** `yt-dlp` en el `PATH`, **y un runtime de JavaScript**
+(`deno`, `node`, `bun` o `quickjs`) también en el `PATH`.
+
+El runtime no es opcional: YouTube exige resolver un desafío en JavaScript para firmar la
+URL del stream, y sin él la descarga falla con **403 Forbidden** sin decir por qué. yt-dlp
+habilita solo `deno` por defecto, así que el proyecto le pasa los cuatro con
+`--js-runtimes` y usa el que encuentre.
+
+> ⚠️ **Pendiente para el instalador.** Hoy las dos dependencias se asumen presentes porque
+> el uso es personal. El instalador del MVP tiene que resolverlas —detectarlas, ofrecer
+> instalarlas, o empaquetarlas— porque un usuario que abre la app y recibe un 403 no tiene
+> forma de saber que le falta Deno. `yt-dlp` además pide Python 3.11 o superior a partir de
+> 2026.
 
 ## Comandos clave
 

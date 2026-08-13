@@ -19,16 +19,36 @@ describe('visualizador', () => {
     // **Este es el test que faltaba en el fondo anterior.** Aquel agrupaba todo
     // en tres bandas, así que dentro de un grupo todas las luces recibían el
     // mismo valor y se prendían juntas: era un latido, no un espectro.
-    const v = createVisualizer(0)
+    const v = createVisualizer(1)
     v.update(soloEn(0, 8), FRAME)
 
-    const niveles = v.levels()
-    expect(Math.max(...niveles.slice(0, 8))).toBe(1)
-    expect(Math.max(...niveles.slice(8))).toBe(0)
+    // Ocho bandas con energía = exactamente ocho barras encendidas.
+    expect([...v.levels()].filter((l) => l > 0)).toHaveLength(8)
+  })
+
+  it('las barras encendidas quedan dispersas, no en un sector', () => {
+    // Sin mezclar el reparto, un golpe de graves levanta un solo sector del
+    // anillo y se ve como una aguja girando, no como una reacción.
+    const v = createVisualizer(1)
+    v.update(soloEn(0, 8), FRAME)
+
+    const encendidas = [...v.levels()].flatMap((l, i) => (l > 0 ? [i] : []))
+    const span = encendidas[encendidas.length - 1] - encendidas[0]
+    expect(span).toBeGreaterThan(BAR_COUNT / 2)
+  })
+
+  it('en reposo la figura no tiene ninguna barra', () => {
+    // El estado base es la figura sola. Un espectro por debajo de la compuerta
+    // —el piso de ruido del análisis— no puede levantar el anillo.
+    const v = createVisualizer(1)
+    const flojo = new Float32Array(BAR_COUNT).fill(0.3)
+    v.update(flojo, FRAME)
+
+    expect(Math.max(...v.levels())).toBe(0)
   })
 
   it('prende al instante y se apaga de a poco', () => {
-    const v = createVisualizer(0)
+    const v = createVisualizer(1)
     v.update(soloEn(0, BAR_COUNT), FRAME)
     expect(v.levels()[0]).toBe(1)
 
@@ -39,8 +59,8 @@ describe('visualizador', () => {
 
   it('la caída no depende de los fps', () => {
     // Si fuera por frame, el anillo caería al doble de velocidad en 120Hz.
-    const a = createVisualizer(0)
-    const b = createVisualizer(0)
+    const a = createVisualizer(1)
+    const b = createVisualizer(1)
     a.update(soloEn(0, BAR_COUNT), FRAME)
     b.update(soloEn(0, BAR_COUNT), FRAME)
 
@@ -51,7 +71,7 @@ describe('visualizador', () => {
   })
 
   it('en silencio se apaga hasta cero, sin quedar negativo', () => {
-    const v = createVisualizer(0)
+    const v = createVisualizer(1)
     v.update(soloEn(0, BAR_COUNT), FRAME)
     for (let i = 0; i < 400; i++) v.update(silencio(), FRAME)
 

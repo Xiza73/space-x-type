@@ -251,7 +251,7 @@ export function GameCanvas({
               onClick={() => void unpause()}
               className="cursor-pointer rounded-xl bg-linear-to-b from-magenta-light to-magenta-dark px-8 py-3 font-display text-lg text-white"
             >
-              CONTINUAR ⎋
+              CONTINUAR
             </button>
             <button
               onClick={leave}

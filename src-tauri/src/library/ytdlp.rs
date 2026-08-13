@@ -15,6 +15,26 @@ use super::store::LibraryError;
 /// porque es lo que después se puede decodificar sin depender de ffmpeg.
 const FORMAT: &str = "bestaudio[ext=m4a]/bestaudio";
 
+/// Runtimes de JavaScript que se le habilitan a yt-dlp, en orden de prioridad.
+///
+/// **Sin esto, YouTube devuelve 403 al descargar.** YouTube exige resolver un
+/// desafío en JavaScript para firmar la URL del stream, y yt-dlp necesita un
+/// runtime para ejecutarlo. Por defecto **solo habilita `deno`**, así que en una
+/// máquina con Node o Bun instalados —pero sin Deno— falla igual, y el mensaje
+/// que llega es un 403 que no dice nada de esto.
+///
+/// Se pasan los cuatro y yt-dlp usa el primero que encuentre; los que no están
+/// se ignoran sin error. Bun está en la lista porque este proyecto ya lo exige.
+const JS_RUNTIMES: [&str; 4] = ["deno", "node", "bun", "quickjs"];
+
+/// Límites de duración de una canción procesable, en segundos.
+///
+/// El piso deja afuera intros y clips que no dan para una partida. El techo
+/// evita que un DJ set de dos horas se lleve el disco y varios minutos de
+/// análisis sin que el usuario se entere de en qué se metió.
+pub const MIN_DURATION_SEC: u32 = 60;
+pub const MAX_DURATION_SEC: u32 = 600;
+
 /// Lo único que se usa del JSON que escupe yt-dlp. El resto del dict es enorme
 /// y su forma cambia entre versiones.
 #[derive(Debug, Deserialize)]
@@ -48,26 +68,74 @@ pub fn download(url: &str, dir: &Path, stem: &str) -> Result<Downloaded, Library
 
     let template = dir.join(format!("{stem}.%(ext)s"));
 
+    let mut command = base_command();
+    command
+        // `-j` imprime el JSON del video, pero **simula por defecto**: sin
+        // `--no-simulate` no descarga nada y el proceso termina con éxito. Un
+        // no-op silencioso, que es la peor clase de bug.
+        .arg("-j")
+        .arg("--no-simulate")
+        .arg("-o")
+        .arg(&template)
+        .arg("--")
+        .arg(url);
+
+    let output = run(command)?;
+    let info = parse_info(&String::from_utf8_lossy(&output.stdout));
+    let file_name = find_audio_file(dir, stem)?;
+
+    Ok(Downloaded {
+        title: clean_title(&info.title),
+        duration_sec: info.duration.unwrap_or(0.0).max(0.0) as u32,
+        file_name,
+    })
+}
+
+/// Pregunta la duración **sin descargar nada**.
+///
+/// Existe para poder rechazar por duración antes de bajar el archivo: descargar
+/// dos horas de audio para después decir "es muy largo" es exactamente lo que no
+/// hay que hacer. Cuesta una llamada de red corta.
+pub fn probe_duration(url: &str) -> Result<u32, LibraryError> {
+    let mut command = base_command();
+    command.arg("--simulate").arg("-j").arg("--").arg(url);
+
+    let output = run(command)?;
+    let info = parse_info(&String::from_utf8_lossy(&output.stdout));
+
+    match info.duration {
+        // Los vivos y algunos formatos vienen sin duración. No se puede validar
+        // ni cortar una partida contra algo que no termina, así que se rechaza.
+        None => Err(LibraryError::UnknownDuration),
+        Some(seconds) => Ok(seconds.max(0.0) as u32),
+    }
+}
+
+/// Los flags que comparten todas las invocaciones.
+///
+/// - Argumentos como vector, nunca una línea de comando armada con `format!`.
+/// - Nada de shell.
+/// - `--no-playlist` es crítico: sin eso, una URL con `&list=` se baja la
+///   playlist entera, que es una descarga que el usuario nunca pidió.
+fn base_command() -> Command {
     let mut command = Command::new("yt-dlp");
     command
         .arg("--no-playlist")
         .arg("--no-progress")
         .arg("--no-warnings")
         .arg("--no-continue")
-        // `-j` imprime el JSON del video, pero **simula por defecto**: sin
-        // `--no-simulate` no descarga nada y el proceso termina con éxito. Un
-        // no-op silencioso, que es la peor clase de bug.
-        .arg("-j")
-        .arg("--no-simulate")
         .arg("-f")
-        .arg(FORMAT)
-        .arg("-o")
-        .arg(&template)
-        .arg("--")
-        .arg(url);
+        .arg(FORMAT);
+
+    for runtime in JS_RUNTIMES {
+        command.arg("--js-runtimes").arg(runtime);
+    }
 
     no_console_window(&mut command);
+    command
+}
 
+fn run(mut command: Command) -> Result<std::process::Output, LibraryError> {
     let output = match command.output() {
         Ok(output) => output,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -87,14 +155,7 @@ pub fn download(url: &str, dir: &Path, stem: &str) -> Result<Downloaded, Library
         return Err(LibraryError::Download);
     }
 
-    let info = parse_info(&String::from_utf8_lossy(&output.stdout));
-    let file_name = find_audio_file(dir, stem)?;
-
-    Ok(Downloaded {
-        title: clean_title(&info.title),
-        duration_sec: info.duration.unwrap_or(0.0).max(0.0) as u32,
-        file_name,
-    })
+    Ok(output)
 }
 
 /// En Windows, un proceso de consola lanzado desde una app gráfica abre una

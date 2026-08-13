@@ -17,8 +17,27 @@
 
 import { COLORS } from '../theme/tokens'
 
-/** Barras alrededor del anillo. Una banda de frecuencia cada una. */
-export const BAR_COUNT = 96
+/**
+ * Barras alrededor del anillo. Una banda de frecuencia cada una.
+ *
+ * Bajó de 96 a 72 para que cada barra sea más gruesa sin que se separen: con la
+ * circunferencia fija, menos barras y más ancho de trazo dan un anillo más
+ * sólido. 72 sigue siendo resolución de sobra para el espectro.
+ */
+export const BAR_COUNT = 72
+
+/**
+ * Nivel por debajo del cual una barra directamente no se dibuja.
+ *
+ * **El estado base de la figura es sin barras.** Sin este umbral el ruido de
+ * fondo del análisis mantenía todo el anillo levantado a media asta, así que la
+ * figura nunca se veía limpia y las barras no se leían como una reacción a algo
+ * sino como decoración permanente.
+ */
+const BAR_GATE = 0.45
+
+/** Qué fracción del espacio entre barras ocupa el trazo. */
+const BAR_DUTY = 0.8
 
 /**
  * Cuánto conserva una barra por segundo al caer.
@@ -29,9 +48,11 @@ export const BAR_COUNT = 96
 const DECAY_PER_SEC = 0.02
 
 /** Radio de la figura, sobre el lado menor del canvas. */
-const FIGURE_RADIUS = 0.15
+const FIGURE_RADIUS = 0.13
 /** Hasta dónde llega una barra a nivel máximo, en radios de figura. */
-const BAR_REACH = 0.95
+const BAR_REACH = 0.8
+/** Centro de la figura, sobre el alto. Arriba del área de juego. */
+const FIGURE_Y = 0.33
 
 export type Visualizer = {
   update(spectrum: Float32Array, dtMs: number): void
@@ -191,8 +212,10 @@ const STYLES: readonly Style[] = [
  * de sortear una distinta cada vez que se juega.
  */
 export function createVisualizer(seed: number): Visualizer {
+  const random = lcg(seed || 1)
   const style = STYLES[Math.abs(Math.trunc(seed)) % STYLES.length]
   const levels = new Float32Array(BAR_COUNT)
+  let body = 0
 
   // Qué barras caen dentro de algún tramo del anillo. Se calcula una vez: es
   // fijo para toda la partida y preguntarlo por barra y por frame es tirar
@@ -202,26 +225,45 @@ export function createVisualizer(seed: number): Visualizer {
     return style.arcs.some(([from, to]) => deg >= from && deg <= to)
   })
 
+  // Qué banda mira cada posición del anillo, **mezclado**.
+  //
+  // Sin mezclar, las frecuencias quedan ordenadas alrededor del círculo y un
+  // golpe de bombo levanta un solo sector: se ve como una aguja girando, no
+  // como una reacción. Mezclado, un sonido enciende posiciones dispersas, que
+  // es lo que hace el efecto en los videos musicales.
+  //
+  // La mezcla va con semilla, así que cada canción tiene su reparto y siempre
+  // el mismo.
+  const order = shuffle(
+    Array.from({ length: BAR_COUNT }, (_, i) => i),
+    random,
+  )
+
   return {
     update(spectrum: Float32Array, dtMs: number): void {
       const keep = DECAY_PER_SEC ** (dtMs / 1000)
+
       for (let i = 0; i < BAR_COUNT; i++) {
-        levels[i] = Math.max(spectrum[i] ?? 0, levels[i] * keep)
+        const raw = spectrum[order[i]] ?? 0
+        // La compuerta va aquí y no al dibujar: así el nivel arranca en cero y
+        // decae desde el golpe, en vez de quedar flotando bajo el umbral.
+        const gated = raw >= BAR_GATE ? raw : 0
+        levels[i] = Math.max(gated, levels[i] * keep)
       }
+
+      // El cuerpo de la figura sale de los graves **sin mezclar**: la mezcla es
+      // para las posiciones del anillo, no para lo que significa cada banda.
+      const bassBands = Math.max(1, Math.floor(spectrum.length / 5))
+      let bass = 0
+      for (let i = 0; i < bassBands; i++) bass += spectrum[i]
+      body = Math.max(bass / bassBands, body * keep)
     },
 
     draw(ctx: CanvasRenderingContext2D, w: number, h: number): void {
       const unit = Math.min(w, h)
       const radius = unit * FIGURE_RADIUS
       const cx = w / 2
-      const cy = h * 0.4
-
-      // El nivel general mueve la figura. Sale de los graves —el primer cuarto
-      // del espectro—, que es lo que se siente como "el golpe".
-      let body = 0
-      const bassBars = Math.floor(BAR_COUNT / 4)
-      for (let i = 0; i < bassBars; i++) body += levels[i]
-      body /= bassBars
+      const cy = h * FIGURE_Y
 
       ctx.save()
       ctx.translate(cx, cy)
@@ -233,7 +275,9 @@ export function createVisualizer(seed: number): Visualizer {
       // Aditivo: donde dos barras se cruzan el color se suma, como una luz.
       ctx.globalCompositeOperation = 'lighter'
       ctx.lineCap = 'round'
-      ctx.lineWidth = Math.max(2, (Math.PI * 2 * radius) / BAR_COUNT / 2)
+      // Ancho de trazo casi igual al espacio entre barras: gruesas y pegadas,
+      // no palitos sueltos.
+      ctx.lineWidth = Math.max(3, ((Math.PI * 2 * radius) / BAR_COUNT) * BAR_DUTY)
 
       const inner = radius * 1.08
       const reach = radius * BAR_REACH
@@ -280,6 +324,27 @@ export function seedFrom(text: string): number {
     hash = Math.imul(hash, 16_777_619)
   }
   return hash >>> 0
+}
+
+/**
+ * Generador congruencial lineal. Alcanza de sobra para repartir bandas por el
+ * anillo, y a diferencia de `Math.random` se puede fijar en un test.
+ */
+function lcg(seed: number): () => number {
+  let state = seed >>> 0 || 1
+  return () => {
+    state = (state * 1_664_525 + 1_013_904_223) >>> 0
+    return state / 4_294_967_296
+  }
+}
+
+/** Fisher-Yates. Devuelve el mismo arreglo, mezclado en el lugar. */
+function shuffle(items: number[], random: () => number): number[] {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1))
+    ;[items[i], items[j]] = [items[j], items[i]]
+  }
+  return items
 }
 
 function disc(ctx: CanvasRenderingContext2D, r: number, top: string, bottom: string): void {
