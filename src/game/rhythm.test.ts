@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Beatmap } from '../library/client'
-import { PROGRESSION, ROUND, ROUND_START_TOLERANCE_MS, SONG } from './constants'
+import {
+  MEASURE_BEATS,
+  PROGRESSION,
+  ROUND,
+  ROUND_START_TOLERANCE_MS,
+  SONG,
+} from './constants'
 import { arcadeRhythm, beatmapRhythm, keyCountFor, songRhythm } from './rhythm'
 
 describe('ritmo arcade', () => {
@@ -34,11 +40,12 @@ describe('ritmo arcade', () => {
 })
 
 describe('ritmo canción', () => {
-  const rhythm = songRhythm(2600)
+  const rhythm = songRhythm(120)
 
   it('mantiene la velocidad fija: el tempo lo pone la canción', () => {
-    expect(rhythm.roundDurationMs(0)).toBe(2600)
-    expect(rhythm.roundDurationMs(500)).toBe(2600)
+    // A 120 BPM el compás de cuatro beats dura 2000ms.
+    expect(rhythm.roundDurationMs(0)).toBe(2000)
+    expect(rhythm.roundDurationMs(500)).toBe(2000)
   })
 
   it('termina a los dos minutos', () => {
@@ -66,8 +73,37 @@ describe('ritmo con beatmap', () => {
   const rhythm = beatmapRhythm(BEATMAP, AUDIO_START)
 
   it('toma tempo y largo del beatmap', () => {
-    expect(rhythm.roundDurationMs(0)).toBe(BEATMAP.roundDurationMs)
+    // A 120 BPM un beat dura 500ms, así que el compás de cuatro da 2000.
+    expect(rhythm.roundDurationMs(0)).toBe(2000)
     expect(rhythm.totalDurationMs).toBe(BEATMAP.durationMs)
+  })
+
+  it('el beatmap no manda sobre la velocidad: manda el tempo', () => {
+    // `beatsPerRound` y `roundDurationMs` siguen en el esquema por
+    // compatibilidad, pero NO se leen. Si alguien los volviera a usar,
+    // reaparecería la segunda variable de velocidad que ya rompió esto dos
+    // veces. Con valores absurdos ahí adentro, la ronda no se mueve.
+    const mentiroso = { ...BEATMAP, beatsPerRound: 999, roundDurationMs: 999_999 }
+    expect(beatmapRhythm(mentiroso, AUDIO_START).roundDurationMs(0)).toBe(2000)
+  })
+
+  it('el compás es de cuatro beats, como en el original', () => {
+    for (const bpm of [83, 97, 128, 174]) {
+      const suyo = beatmapRhythm({ ...BEATMAP, bpm }, AUDIO_START)
+      expect(suyo.roundDurationMs(0) / (60_000 / bpm)).toBeCloseTo(MEASURE_BEATS, 1)
+    }
+  })
+
+  it('más tempo es siempre barra más rápida', () => {
+    // La regresión que motivó todo esto: antes la duración se elegía sola
+    // buscando un objetivo fijo, y entre 150 y 151 BPM saltaba de 1600 a
+    // 3178ms. Subir el tempo hacía la barra casi el doble de lenta.
+    let anterior = Infinity
+    for (let bpm = 40; bpm <= 240; bpm++) {
+      const duracion = beatmapRhythm({ ...BEATMAP, bpm }, AUDIO_START).roundDurationMs(0)
+      expect(duracion).toBeLessThan(anterior)
+      anterior = duracion
+    }
   })
 
   it('no mete pausa entre rondas: el hueco lo da la grilla', () => {

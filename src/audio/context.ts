@@ -16,6 +16,8 @@ export type Tone = {
 }
 
 let context: AudioContext | null = null
+let master: GainNode | null = null
+let analyser: AnalyserNode | null = null
 
 /**
  * El contexto se crea perezosamente: construirlo en el import haría que el
@@ -25,6 +27,46 @@ let context: AudioContext | null = null
 export function getAudioContext(): AudioContext {
   context ??= new AudioContext()
   return context
+}
+
+/**
+ * Salida maestra. **Todo lo que suena se conecta aquí**, nunca a `destination`.
+ *
+ * El grafo es `fuentes → master → analyser → destination`. Ese punto único es
+ * lo que permite que el fondo reaccione a lo que realmente se escucha, sin que
+ * cada fuente tenga que enterarse de que existe un fondo: el chiptune, la
+ * canción y los efectos siguen sin saber nada.
+ */
+export function masterOut(): GainNode {
+  buildGraph()
+  return master as GainNode
+}
+
+/**
+ * El analizador del que lee el fondo reactivo.
+ *
+ * `smoothingTimeConstant` va bajo a propósito: el suavizado de verdad lo hace
+ * el campo de luces, con ataque instantáneo y caída lenta. Suavizar aquí
+ * además redondearía los golpes y las luces dejarían de marcar el ritmo, que
+ * es justo lo único que tienen que hacer.
+ */
+export function getAnalyser(): AnalyserNode {
+  buildGraph()
+  return analyser as AnalyserNode
+}
+
+function buildGraph(): void {
+  if (master !== null) return
+  const ctx = getAudioContext()
+
+  master = ctx.createGain()
+  analyser = ctx.createAnalyser()
+  // 512 bins sobre el espectro: ~43 Hz por bin a 44.1 kHz. Suficiente para
+  // separar graves de agudos, y barato de leer una vez por frame.
+  analyser.fftSize = 1024
+  analyser.smoothingTimeConstant = 0.3
+
+  master.connect(analyser).connect(ctx.destination)
 }
 
 /**
@@ -67,8 +109,6 @@ export function nowMs(): number {
  * Agenda un tono. `atSec` va en segundos del reloj de audio (no en ms):
  * es la unidad que espera la Web Audio API y aquí estamos del lado del audio.
  *
- * ponytail: sale directo a `destination`. Cuando haga falta volumen, se mete
- * un GainNode maestro y se cambia únicamente esta función.
  */
 export function playTone(tone: Tone, atSec?: number): void {
   const ctx = getAudioContext()
@@ -87,7 +127,7 @@ export function playTone(tone: Tone, atSec?: number): void {
   gain.gain.setValueAtTime(tone.gain, at)
   gain.gain.exponentialRampToValueAtTime(0.001, at + tone.durationSec)
 
-  osc.connect(gain).connect(ctx.destination)
+  osc.connect(gain).connect(masterOut())
   osc.start(at)
   osc.stop(at + tone.durationSec + 0.02)
 }

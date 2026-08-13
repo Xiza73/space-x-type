@@ -123,14 +123,52 @@ sobre todo, con `pointer-events:none`.
 
 **Viñeta** — `radial-gradient` elíptico azulado al 42% de altura.
 
-**Fondo psicodélico** — blobs de color con `filter: blur(34px) contrast(18)` en el contenedor.
-Ese par blur+contrast es lo que produce el efecto *metaball* de lámpara de lava; separados no
-hacen nada. Encima, `hue-rotate` de 40s y dos capas de oscurecimiento.
+**Visualizador circular** — una figura en el centro y barras de sonido saliendo de secciones
+del anillo. Reemplaza al fondo psicodélico del prototipo **y** al plan de poner el video de
+YouTube de fondo.
 
-> ⚠️ **Ese filtro es caro.** Es un `blur` + `contrast` a pantalla completa animándose bajo un
-> juego que tiene que sostener 60fps. **Hay que medirlo con el gameplay corriendo**, no
-> solo. Si come frames: pasa a canvas/WebGL, o queda como opción con aviso. El fondo nunca
-> le gana al loop de juego.
+Cada barra lee **su propia banda de frecuencia**, repartidas en escala logarítmica. Esa es la
+regla que no se puede romper: un intento anterior agrupaba todo en tres bandas gruesas, y
+dentro de un grupo todas las luces recibían el mismo valor, así que se prendían juntas. El
+resultado era un latido, no un espectro. Con una banda por barra, moverse todas igual es
+imposible por construcción.
+
+El reparto es logarítmico y no lineal porque el oído oye en octavas: con reparto lineal, la
+mitad de las barras cae arriba de 5 kHz, donde no pasa nada, y el bombo y la voz se aplastan
+en las dos primeras. Además se realza progresivamente hacia los agudos, o si no ese lado del
+anillo queda plano en cualquier canción.
+
+**Catálogo de figuras** — `vinilo`, `auriculares`, `casco`, `nucleo`. Todas circulares y
+dibujadas con primitivas de canvas: el proyecto no lleva assets. La figura se elige con un
+hash del id de la canción, así que **es estable por canción** —la misma canción se ve siempre
+igual, y eso le da identidad— pero cambia entre canciones.
+
+Los tramos del anillo donde hay barras son parte de cada figura, no decoración: los
+auriculares dejan libre donde van las orejeras, el casco deja libre el visor. Las barras salen
+de donde la figura no está.
+
+> ✅ **Medido con el gameplay corriendo**, que es lo que esta regla venía pidiendo desde el
+> principio. A 1280×720 con 96 barras, medianas de tandas alternadas para cancelar la deriva
+> de la máquina: el render pasa de **0.223 ms a 0.505 ms** por frame. El visualizador cuesta
+> **0.282 ms**, el 3% del presupuesto de 16.67 ms a 60fps.
+>
+> El contraste del riel **no se mueve**: 105 puntos de luminancia entre el centro de la zona y
+> el borde, idéntico con el fondo apagado y con cualquiera de las cuatro figuras. El riel se
+> dibuja con rellenos opacos encima. La pantalla iluminada pasa del 7.2% al 10-11%, muy por
+> debajo del 49-65% que llegaba a ocupar el campo de luces.
+>
+> Aun así **es apagable** desde el menú (`FONDO: VISUAL / LISO`). Es lo único que dibuja de
+> más por frame. El fondo nunca le gana al loop de juego.
+
+**Un gradiente para las 96 barras.** Se define hacia arriba y son las barras las que giran
+debajo de él, porque un gradiente de canvas se pinta con la transformación vigente. Armarlo
+por barra y por frame costaba **0.685 ms** contra 0.282 ms así — más del doble. Es el error
+clásico de este tipo de efecto y hay que resistirlo.
+
+El fondo psicodélico original usaba `filter: blur(34px) contrast(18)` sobre el contenedor
+—ese par es lo que produce el efecto *metaball* de lámpara de lava; separados no hacen nada—
+más un `hue-rotate` de 40s. Queda documentado porque es lindo, pero **no se construyó**: era
+un blur a pantalla completa animándose bajo un juego de 60fps.
 
 ## Geometría y movimiento
 

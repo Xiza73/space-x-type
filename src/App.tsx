@@ -19,20 +19,30 @@ const LANGUAGE_OPTIONS = [
   { value: 'en', label: 'ENGLISH' },
 ] as const satisfies readonly { value: Language; label: string }[]
 
+// El default va primero. Que CANCIÓN sea el modo por defecto y apareciera
+// segunda era una contradicción visible.
 const RHYTHM_OPTIONS = [
-  { value: 'arcade', label: 'ARCADE' },
   { value: 'song', label: 'CANCIÓN' },
+  { value: 'arcade', label: 'ARCADE' },
 ] as const satisfies readonly { value: RhythmMode; label: string }[]
 
 const SPEED_OPTIONS = SPEED_PRESETS.map((p) => ({ value: p.id, label: p.label }))
+
+const BACKGROUND_OPTIONS = [
+  { value: 'visual', label: 'VISUAL' },
+  { value: 'plain', label: 'LISO' },
+] as const satisfies readonly { value: BackgroundId; label: string }[]
+
+type BackgroundId = 'visual' | 'plain'
 
 export function App() {
   const [started, setStarted] = useState(false)
   const [sequenceType, setSequenceType] = useState<SequenceType>('arrows')
   const [language, setLanguage] = useState<Language>('es')
-  const [rhythmMode, setRhythmMode] = useState<RhythmMode>('arcade')
+  const [rhythmMode, setRhythmMode] = useState<RhythmMode>(DEFAULTS.rhythmMode)
   const [speed, setSpeed] = useState<SpeedId>(DEFAULTS.speed)
   const [song, setSong] = useState<SongStatus | null>(null)
+  const [background, setBackground] = useState<BackgroundId>('visual')
 
   useEffect(() => {
     if (started) return
@@ -62,6 +72,7 @@ export function App() {
         rhythmMode={rhythmMode}
         speed={speed}
         song={rhythmMode === 'song' ? song : null}
+        reactiveBackground={background === 'visual'}
         onMenu={() => setStarted(false)}
       />
     )
@@ -70,7 +81,9 @@ export function App() {
   return (
     <>
       <main className="grid h-full place-content-center justify-items-center gap-6 px-6 text-center">
-        <p className="text-[11px] font-bold tracking-[6px] text-ink-muted">1P // MODO ARCADE</p>
+        <p className="text-[11px] font-bold tracking-[6px] text-ink-muted">
+          1P // MODO {RHYTHM_OPTIONS.find((o) => o.value === rhythmMode)?.label}
+        </p>
 
         <h1 className="chrome font-display text-6xl leading-none">SPACE x TYPE</h1>
 
@@ -82,7 +95,7 @@ export function App() {
           dorada.{' '}
           {rhythmMode === 'arcade'
             ? 'La barra se acelera con cada nivel y juegas hasta quedarte sin vidas.'
-            : 'La velocidad no cambia: lo que sube es la cantidad de teclas, y la partida dura dos minutos.'}
+            : 'La barra va al tempo de la canción: más BPM, más rápida. Sin vidas — se juega hasta que la canción termina.'}
         </p>
 
         <div className="flex flex-wrap justify-center gap-4">
@@ -112,10 +125,26 @@ export function App() {
             />
           )}
 
-          {/* Con una canción elegida la velocidad la pone el beatmap. */}
+          {/*
+            El visualizador es lo único que dibuja de más por frame, así que
+            tiene que poder apagarse. El fondo nunca le gana al loop de juego.
+          */}
+          <Toggle
+            label="FONDO"
+            value={background}
+            options={BACKGROUND_OPTIONS}
+            accent="magenta"
+            onChange={setBackground}
+          />
+
+          {/*
+            Con una canción de la biblioteca este control NO aparece: ahí el
+            tempo sale de la canción y se ajusta en la biblioteca. Dos lugares
+            para la misma variable serían dos lugares para desincronizarse.
+          */}
           {rhythmMode === 'song' && song === null && (
             <Toggle
-              label="VELOCIDAD"
+              label="BPM"
               value={speed}
               options={SPEED_OPTIONS}
               accent="cyan"
@@ -124,7 +153,12 @@ export function App() {
           )}
         </div>
 
-        {rhythmMode === 'song' && <SongLibrary selected={song} onSelect={setSong} />}
+        {rhythmMode === 'song' && (
+          <SongLibrary
+            selected={song}
+            onSelect={setSong}
+          />
+        )}
 
         <button
           onClick={() => void start()}

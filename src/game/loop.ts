@@ -1,5 +1,7 @@
 import { startChiptune, stopChiptune } from '../audio/chiptune'
 import { nowMs } from '../audio/context'
+import { readSpectrum } from '../audio/spectrum'
+import { BAR_COUNT, createVisualizer } from './visualizer'
 import { CONFIRM_KEYS, ROUND_START_TOLERANCE_MS } from './constants'
 import { sfxBad, sfxGood, sfxGreat, sfxKey, sfxMiss, sfxPerfect, sfxWrong } from '../audio/sfx'
 import {
@@ -42,6 +44,13 @@ export type LoopOptions = {
   /** Qué suena, para mostrarlo en pantalla. `null` con el chiptune. */
   track: TrackInfo | null
   /**
+   * Semilla de la figura del visualizador, o `null` para no dibujar fondo.
+   *
+   * Se puede apagar a propósito: es lo único que dibuja de más por frame, así
+   * que tiene que poder sacarse en una máquina que no llegue a 60fps.
+   */
+  visualSeed: number | null
+  /**
    * Se llama una sola vez, al terminar la partida. La pantalla de resultados
    * vive en React porque necesita un input de texto, y un input no va en canvas.
    */
@@ -62,6 +71,7 @@ export function startGameLoop({
   rhythm,
   nextSequence,
   track,
+  visualSeed,
   onGameOver,
 }: LoopOptions): Loop {
   const fullConfig: GameConfig = { ...config, interRoundPauseMs: rhythm.interRoundPauseMs }
@@ -75,6 +85,9 @@ export function startGameLoop({
   // La primera ronda también entra en anticipo: al terminar la cuenta el
   // jugador ve lo que viene antes de tener que tocar nada.
   let wantsPreview = true
+  let lastFrameMs: number | null = null
+  const background = visualSeed === null ? null : createVisualizer(visualSeed)
+  const spectrum = new Float32Array(BAR_COUNT)
 
   // Con una canción de verdad sonando, el chiptune sobra.
   if (bpm !== null) startChiptune(bpm)
@@ -122,7 +135,16 @@ export function startGameLoop({
       }
     }
 
-    draw(canvas, state, now, track)
+    if (background !== null) {
+      // El delta sale del reloj de audio, igual que todo lo demás. En el primer
+      // frame no hay anterior, así que se asume uno de 60fps.
+      const dtMs = lastFrameMs === null ? 16.7 : now - lastFrameMs
+      readSpectrum(spectrum)
+      background.update(spectrum, dtMs)
+    }
+    lastFrameMs = now
+
+    draw(canvas, state, now, track, background)
     raf = requestAnimationFrame(frame)
   }
 
@@ -145,7 +167,12 @@ export function startGameLoop({
 
     const { state: next, result } = pressKey(state, rawKey)
     // El tono usa el índice ANTES de avanzar: la primera tecla suena la nota base.
-    if (result === 'advance') sfxKey(state.index)
+    //
+    // Con una canción de verdad no suena: la escalera de tonos está afinada
+    // contra el chiptune, y encima de una canción real queda desafinada y tapa
+    // lo que el jugador vino a escuchar. El error sí suena — avisa de algo que
+    // pasó y hay que enterarse igual.
+    if (result === 'advance' && bpm !== null) sfxKey(state.index)
     if (result === 'reset') sfxWrong()
     state = next
   }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { measureDurationMs } from '../game/constants'
 import {
   deleteSong,
   effectiveBpm,
@@ -122,7 +123,7 @@ export function SongLibrary({ selected, onSelect }: Props) {
             }`}
           >
             Chiptune simulado
-            <span className="ml-2 text-[12px] text-ink-muted">velocidad a elección</span>
+            <span className="ml-2 text-[12px] text-ink-muted">tempo a elección</span>
           </button>
         </li>
 
@@ -193,8 +194,8 @@ export function SongLibrary({ selected, onSelect }: Props) {
       )}
 
       <p className="text-[12px] text-ink-muted">
-        Procesar descarga el audio y detecta el tempo. Con una canción elegida, el tempo y la
-        duración de la partida los define el beatmap.
+        Procesar descarga el audio y detecta el tempo. El tempo es la velocidad: la barra
+        cruza un compás de cuatro beats, así que más BPM es barra más rápida.
       </p>
     </div>
   )
@@ -252,6 +253,19 @@ function BpmEditor({
           Volver al detectado
         </button>
       )}
+
+      <span className="basis-full text-ink-muted">
+        {valid ? (
+          <>
+            La barra tarda{' '}
+            <b className="text-cyan">{(measureDurationMs(parsed) / 1000).toFixed(2)} s</b> en
+            cruzar un compás. <b className="text-gold">Más BPM, barra más rápida.</b> Es la
+            única perilla de velocidad.
+          </>
+        ) : (
+          <>Fuera del rango recomendado.</>
+        )}
+      </span>
 
       <span className="basis-full text-ink-muted">
         Si el juego va al doble o a la mitad de velocidad de lo que escuchas, prueba con la

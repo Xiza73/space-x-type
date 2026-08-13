@@ -77,12 +77,51 @@ export const SONG = {
   durationMs: 120_000,
 } as const
 
-/** Velocidades elegibles para el modo canción, en duración de ronda. */
+/**
+ * La barra cruza **un compás de 4/4**. Cuatro beats, siempre.
+ *
+ * Es lo que hace el original: el metrónomo va al BPM de la canción, se tipea
+ * dentro del compás y se confirma en el cuarto beat. Por eso en modo canción
+ * **el BPM es la única perilla de velocidad**: más BPM, barra más rápida y
+ * partida más difícil. No hay una segunda variable, y no la puede haber sin
+ * volver a romper la relación.
+ *
+ * > Aquí hubo dos modelos equivocados antes de este. El primero elegía los
+ * > beats por ronda buscando una duración objetivo, así que **cancelaba** el
+ * > tempo: a 150 BPM la ronda duraba 1600ms y a 155 saltaba a 3096ms. El
+ * > segundo dejó los beats como una perilla aparte, que arreglaba la monotonía
+ * > pero seguía teniendo dos variables para una sola cosa. El "4beat / 8beat"
+ * > del original, que fue de donde saqué esa idea, **no es la velocidad**: son
+ * > las direcciones, 4 teclas contra 8. Ese eje ya lo teníamos, y es `SONG`.
+ */
+export const MEASURE_BEATS = 4
+
+/**
+ * Cuánto tarda la barra en cruzar, dado el tempo.
+ *
+ * Vive aquí y no en el ritmo porque la biblioteca la muestra antes de jugar: el
+ * jugador tiene que ver a qué velocidad le queda la canción **mientras** ajusta
+ * el tempo, no descubrirlo jugando.
+ */
+export function measureDurationMs(bpm: number): number {
+  return Math.round((MEASURE_BEATS * 60_000) / bpm)
+}
+
+/**
+ * Tempos elegibles para la canción **simulada**, la del chiptune.
+ *
+ * El label es el número a propósito: la perilla es el BPM y nada más, así que
+ * tiene que decir BPM. Un `CALMA / NORMAL / RÁPIDO` escondía justamente la
+ * variable que el jugador necesita entender.
+ *
+ * Con una canción de la biblioteca este control no aparece: ahí el tempo sale
+ * de la canción y se ajusta en la biblioteca.
+ */
 export const SPEED_PRESETS = [
-  { id: 'calma', label: 'CALMA', roundDurationMs: 3400 },
-  { id: 'normal', label: 'NORMAL', roundDurationMs: 2600 },
-  { id: 'rapido', label: 'RÁPIDO', roundDurationMs: 1900 },
-  { id: 'extremo', label: 'EXTREMO', roundDurationMs: 1400 },
+  { id: 'calma', label: '90', bpm: 90 },
+  { id: 'normal', label: '120', bpm: 120 },
+  { id: 'rapido', label: '150', bpm: 150 },
+  { id: 'extremo', label: '180', bpm: 180 },
 ] as const
 
 export const ROUND = {
@@ -121,6 +160,12 @@ export const DEFAULTS = {
   bpm: 132,
   speedScale: 1,
   speed: 'normal',
+  /**
+   * Canción, no arcade. Arcade fue el modo que validó la mecánica, pero el
+   * juego que uno abre a jugar es el de la canción propia: arcade se elige a
+   * propósito, canción es a lo que se entra.
+   */
+  rhythmMode: 'song',
 } as const
 
 /** Rangos válidos para la pantalla de configuración. */
