@@ -239,6 +239,31 @@ function BpmEditor({
         className="w-20 rounded border-2 border-line bg-sunken px-2 py-1 text-center text-ink outline-none focus:border-cyan"
       />
 
+      {/*
+        Mitad y doble, de un click. **Es el error que de verdad ocurre.**
+        Medido sobre canciones reales: la detección acierta el período pero
+        elige la octava equivocada, y una balada lenta con subdivisiones y un
+        tema rápido con acentos a mitad de tiempo son la misma señal — ningún
+        ajuste del detector acierta las dos. Así que en vez de fingir que se
+        arregla solo, corregirlo cuesta un click.
+      */}
+      <button
+        onClick={() => setValue(String(Math.round(parsed / 2)))}
+        disabled={!Number.isFinite(parsed) || parsed / 2 < BPM_LIMITS.min}
+        title="La mitad del tempo"
+        className="cursor-pointer rounded border border-line px-2 py-1 font-bold text-ink-muted hover:border-cyan hover:text-cyan disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        ÷2
+      </button>
+      <button
+        onClick={() => setValue(String(Math.round(parsed * 2)))}
+        disabled={!Number.isFinite(parsed) || parsed * 2 > BPM_LIMITS.max}
+        title="El doble del tempo"
+        className="cursor-pointer rounded border border-line px-2 py-1 font-bold text-ink-muted hover:border-cyan hover:text-cyan disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        ×2
+      </button>
+
       <button
         onClick={() => onSave(parsed)}
         disabled={!valid}
@@ -274,8 +299,9 @@ function BpmEditor({
       </span>
 
       <span className="basis-full text-ink-muted">
-        Si el juego va al doble o a la mitad de velocidad de lo que escuchas, prueba con la
-        mitad o el doble del detectado: es el error típico de la detección.
+        Si el juego va al doble o a la mitad de lo que escuchas, usa <b>÷2</b> o <b>×2</b>: la
+        detección acierta el pulso pero a veces elige la octava equivocada, y desde la señal
+        sola no se puede distinguir.
       </span>
     </div>
   )
