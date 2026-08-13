@@ -15,6 +15,27 @@ use super::store::LibraryError;
 /// porque es lo que después se puede decodificar sin depender de ffmpeg.
 const FORMAT: &str = "bestaudio[ext=m4a]/bestaudio";
 
+/// Las herramientas ya resueltas: dónde está yt-dlp y con qué runtime correrlo.
+///
+/// Se resuelven **una vez por operación** y se pasan, en vez de que cada
+/// invocación las busque de nuevo: buscar en el `PATH` y tocar el disco tres
+/// veces para la misma descarga no aporta nada.
+pub struct Tools {
+    ytdlp: std::path::PathBuf,
+    /// QuickJS empaquetado. `None` en desarrollo, donde vale lo que haya en el
+    /// `PATH`.
+    quickjs: Option<std::path::PathBuf>,
+}
+
+impl Tools {
+    pub fn resolve(data_dir: &Path) -> Result<Self, LibraryError> {
+        Ok(Self {
+            ytdlp: super::tooling::ensure_ytdlp(data_dir)?,
+            quickjs: super::tooling::find_quickjs(),
+        })
+    }
+}
+
 /// Runtimes de JavaScript que se le habilitan a yt-dlp, en orden de prioridad.
 ///
 /// **Sin esto, YouTube devuelve 403 al descargar.** YouTube exige resolver un
@@ -63,12 +84,17 @@ pub struct Downloaded {
 /// - Los flags son fijos y están aquí. El usuario no aporta ninguno.
 /// - `--no-playlist` es crítico: sin eso, una URL con `&list=` se baja la
 ///   playlist entera, que es una descarga que el usuario nunca pidió.
-pub fn download(url: &str, dir: &Path, stem: &str) -> Result<Downloaded, LibraryError> {
+pub fn download(
+    tools: &Tools,
+    url: &str,
+    dir: &Path,
+    stem: &str,
+) -> Result<Downloaded, LibraryError> {
     fs::create_dir_all(dir)?;
 
     let template = dir.join(format!("{stem}.%(ext)s"));
 
-    let mut command = base_command();
+    let mut command = base_command(tools);
     command
         // `-j` imprime el JSON del video, pero **simula por defecto**: sin
         // `--no-simulate` no descarga nada y el proceso termina con éxito. Un
@@ -96,8 +122,8 @@ pub fn download(url: &str, dir: &Path, stem: &str) -> Result<Downloaded, Library
 /// Existe para poder rechazar por duración antes de bajar el archivo: descargar
 /// dos horas de audio para después decir "es muy largo" es exactamente lo que no
 /// hay que hacer. Cuesta una llamada de red corta.
-pub fn probe_duration(url: &str) -> Result<u32, LibraryError> {
-    let mut command = base_command();
+pub fn probe_duration(tools: &Tools, url: &str) -> Result<u32, LibraryError> {
+    let mut command = base_command(tools);
     command.arg("--simulate").arg("-j").arg("--").arg(url);
 
     let output = run(command)?;
@@ -117,8 +143,8 @@ pub fn probe_duration(url: &str) -> Result<u32, LibraryError> {
 /// - Nada de shell.
 /// - `--no-playlist` es crítico: sin eso, una URL con `&list=` se baja la
 ///   playlist entera, que es una descarga que el usuario nunca pidió.
-fn base_command() -> Command {
-    let mut command = Command::new("yt-dlp");
+fn base_command(tools: &Tools) -> Command {
+    let mut command = Command::new(&tools.ytdlp);
     command
         .arg("--no-playlist")
         .arg("--no-progress")
@@ -127,6 +153,14 @@ fn base_command() -> Command {
         .arg("-f")
         .arg(FORMAT);
 
+    // El QuickJS empaquetado se pasa **con su ruta**: yt-dlp acepta
+    // `runtime:ruta` y así no depende de que esté en el `PATH`, que es
+    // justamente lo que no podemos asumir en la máquina de un usuario.
+    if let Some(qjs) = &tools.quickjs {
+        command.arg("--js-runtimes").arg(format!("quickjs:{}", qjs.display()));
+    }
+
+    // Y además los del sistema, por si el usuario ya tenía alguno.
     for runtime in JS_RUNTIMES {
         command.arg("--js-runtimes").arg(runtime);
     }
