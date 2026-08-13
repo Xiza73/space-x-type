@@ -114,8 +114,13 @@ export function App() {
             />
           )}
 
-          {/* Con una canción elegida la velocidad la pone el beatmap. */}
-          {rhythmMode === 'song' && song === null && (
+          {/*
+            La velocidad se elige SIEMPRE en modo canción, también con una
+            canción de la biblioteca. El beatmap pone el tempo —dónde caen los
+            beats—, no la velocidad: con una canción elegida, esto define
+            cuántos beats dura cada ronda.
+          */}
+          {rhythmMode === 'song' && (
             <Toggle
               label="VELOCIDAD"
               value={speed}
@@ -126,7 +131,15 @@ export function App() {
           )}
         </div>
 
-        {rhythmMode === 'song' && <SongLibrary selected={song} onSelect={setSong} />}
+        {rhythmMode === 'song' && (
+          <SongLibrary
+            selected={song}
+            onSelect={setSong}
+            beatsPerRound={
+              (SPEED_PRESETS.find((p) => p.id === speed) ?? SPEED_PRESETS[1]).beatsPerRound
+            }
+          />
+        )}
 
         <button
           onClick={() => void start()}

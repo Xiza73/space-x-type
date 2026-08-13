@@ -1,5 +1,5 @@
 import type { Beatmap } from '../library/client'
-import { PROGRESSION, ROUND, SONG } from './constants'
+import { beatRoundDurationMs, PROGRESSION, ROUND, SONG } from './constants'
 import { levelFor } from './engine'
 
 /**
@@ -72,10 +72,20 @@ export function songRhythm(roundDurationMs: number): RhythmSource {
  *
  * `audioStartMs` es cuándo arranca el audio **en el reloj del juego**, o sea en
  * la misma base de tiempo que `nowMs()`. Sin eso la grilla no significaría nada.
+ *
+ * `beatsPerRound` lo elige el jugador, no el beatmap. Son dos cosas distintas y
+ * mezclarlas fue el error original: el **tempo** es una medición del audio, la
+ * **velocidad** es una preferencia. Cuando la velocidad se derivaba del tempo,
+ * corregir el tempo movía la barra para cualquier lado y el jugador no tenía
+ * forma de pedir "más rápido".
  */
-export function beatmapRhythm(beatmap: Beatmap, audioStartMs: number): RhythmSource {
+export function beatmapRhythm(
+  beatmap: Beatmap,
+  audioStartMs: number,
+  beatsPerRound: number,
+): RhythmSource {
   const gridStartMs = audioStartMs + beatmap.firstBeatMs
-  const step = beatmap.roundDurationMs
+  const step = beatRoundDurationMs(beatmap.bpm, beatsPerRound)
 
   return {
     roundDurationMs: () => step,

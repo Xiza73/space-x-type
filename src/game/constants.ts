@@ -77,13 +77,40 @@ export const SONG = {
   durationMs: 120_000,
 } as const
 
-/** Velocidades elegibles para el modo canción, en duración de ronda. */
+/**
+ * Velocidades elegibles para el modo canción.
+ *
+ * Van los dos valores porque las dos fuentes de ritmo miden distinto y no se
+ * pueden mezclar:
+ *
+ * - La canción **simulada** corre libre, así que se le da la duración en ms.
+ * - La canción **real** tiene que caer en un número entero de beats o la barra
+ *   se sale de la grilla, que es lo único que hace que un juego de ritmo sea un
+ *   juego de ritmo. Por eso se elige en beats y la duración sale del tempo.
+ *
+ * Que la velocidad se elija en beats es lo que vuelve **predecible** al tempo:
+ * con los beats fijos, `duración = beats · 60000 / bpm` es estrictamente
+ * decreciente en el BPM. Más tempo, barra más rápida, siempre. Antes la
+ * duración se elegía sola buscando un objetivo fijo y la relación tenía dos
+ * saltos donde subir el tempo hacía la barra casi el doble de lenta.
+ */
 export const SPEED_PRESETS = [
-  { id: 'calma', label: 'CALMA', roundDurationMs: 3400 },
-  { id: 'normal', label: 'NORMAL', roundDurationMs: 2600 },
-  { id: 'rapido', label: 'RÁPIDO', roundDurationMs: 1900 },
-  { id: 'extremo', label: 'EXTREMO', roundDurationMs: 1400 },
+  { id: 'calma', label: 'CALMA', roundDurationMs: 3400, beatsPerRound: 8 },
+  { id: 'normal', label: 'NORMAL', roundDurationMs: 2600, beatsPerRound: 6 },
+  { id: 'rapido', label: 'RÁPIDO', roundDurationMs: 1900, beatsPerRound: 4 },
+  { id: 'extremo', label: 'EXTREMO', roundDurationMs: 1400, beatsPerRound: 2 },
 ] as const
+
+/**
+ * Duración de ronda de una canción real, dado el tempo y la velocidad elegida.
+ *
+ * Vive aquí y no en el ritmo porque la pantalla de la biblioteca la muestra
+ * antes de jugar: el jugador tiene que poder ver a qué velocidad va a quedar la
+ * canción **mientras** corrige el tempo, no descubrirlo jugando.
+ */
+export function beatRoundDurationMs(bpm: number, beatsPerRound: number): number {
+  return Math.round((beatsPerRound * 60_000) / bpm)
+}
 
 export const ROUND = {
   arrowCount: 5,

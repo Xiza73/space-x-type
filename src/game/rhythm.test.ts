@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Beatmap } from '../library/client'
-import { PROGRESSION, ROUND, ROUND_START_TOLERANCE_MS, SONG } from './constants'
+import {
+  PROGRESSION,
+  ROUND,
+  ROUND_START_TOLERANCE_MS,
+  SONG,
+  SPEED_PRESETS,
+} from './constants'
 import { arcadeRhythm, beatmapRhythm, keyCountFor, songRhythm } from './rhythm'
 
 describe('ritmo arcade', () => {
@@ -63,11 +69,46 @@ describe('ritmo con beatmap', () => {
   const AUDIO_START = 10_000
   const GRID = AUDIO_START + BEATMAP.firstBeatMs
 
-  const rhythm = beatmapRhythm(BEATMAP, AUDIO_START)
+  const rhythm = beatmapRhythm(BEATMAP, AUDIO_START, 4)
 
   it('toma tempo y largo del beatmap', () => {
-    expect(rhythm.roundDurationMs(0)).toBe(BEATMAP.roundDurationMs)
+    // A 120 BPM un beat dura 500ms, así que cuatro dan 2000.
+    expect(rhythm.roundDurationMs(0)).toBe(2000)
     expect(rhythm.totalDurationMs).toBe(BEATMAP.durationMs)
+  })
+
+  it('la velocidad la elige el jugador, no el beatmap', () => {
+    // Mismo beatmap, cuatro velocidades. Si esto dejara de valer, elegir
+    // VELOCIDAD no haría nada con una canción de la biblioteca.
+    for (const preset of SPEED_PRESETS) {
+      const suyo = beatmapRhythm(BEATMAP, AUDIO_START, preset.beatsPerRound)
+      expect(suyo.roundDurationMs(0)).toBe(preset.beatsPerRound * 500)
+    }
+  })
+
+  it('más tempo es siempre barra más rápida', () => {
+    // La regresión que motivó todo esto: antes la duración se elegía sola
+    // buscando un objetivo fijo, y entre 150 y 151 BPM saltaba de 1600 a
+    // 3178ms. Subir el tempo hacía la barra casi el doble de lenta.
+    let anterior = Infinity
+    for (let bpm = 40; bpm <= 240; bpm++) {
+      const duracion = beatmapRhythm({ ...BEATMAP, bpm }, AUDIO_START, 4).roundDurationMs(0)
+      expect(duracion).toBeLessThan(anterior)
+      anterior = duracion
+    }
+  })
+
+  it('la ronda cae siempre en un número entero de beats', () => {
+    // Si no, la barra se sale de la grilla y el juego deja de ir con la música,
+    // que es lo único que hace que un juego de ritmo sea un juego de ritmo.
+    for (const bpm of [83, 97, 128, 174]) {
+      const beatMs = 60_000 / bpm
+      for (const preset of SPEED_PRESETS) {
+        const duracion = beatmapRhythm({ ...BEATMAP, bpm }, AUDIO_START, preset.beatsPerRound)
+          .roundDurationMs(0)
+        expect(Math.abs(duracion / beatMs - preset.beatsPerRound)).toBeLessThan(0.01)
+      }
+    }
   })
 
   it('no mete pausa entre rondas: el hueco lo da la grilla', () => {

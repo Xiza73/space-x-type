@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { beatRoundDurationMs } from '../game/constants'
 import {
   deleteSong,
   effectiveBpm,
@@ -14,9 +15,16 @@ type Props = {
   /** Canción elegida, o `null` para el chiptune simulado. */
   selected: SongStatus | null
   onSelect: (song: SongStatus | null) => void
+  /**
+   * Velocidad elegida en el menú. Entra solo para poder mostrar en cuánto
+   * queda la ronda al corregir el tempo: sin eso el editor da un número sin
+   * consecuencia visible, que es de dónde salió la confusión original entre
+   * tempo y velocidad.
+   */
+  beatsPerRound: number
 }
 
-export function SongLibrary({ selected, onSelect }: Props) {
+export function SongLibrary({ selected, onSelect, beatsPerRound }: Props) {
   const [songs, setSongs] = useState<SongStatus[]>([])
   const [url, setUrl] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
@@ -179,7 +187,11 @@ export function SongLibrary({ selected, onSelect }: Props) {
               </div>
 
               {editing === song.id && song.bpm !== null && (
-                <BpmEditor song={song} onSave={(value) => void saveBpm(song.id, value)} />
+                <BpmEditor
+                  song={song}
+                  beatsPerRound={beatsPerRound}
+                  onSave={(value) => void saveBpm(song.id, value)}
+                />
               )}
             </li>
           )
@@ -193,8 +205,8 @@ export function SongLibrary({ selected, onSelect }: Props) {
       )}
 
       <p className="text-[12px] text-ink-muted">
-        Procesar descarga el audio y detecta el tempo. Con una canción elegida, el tempo y la
-        duración de la partida los define el beatmap.
+        Procesar descarga el audio y detecta el tempo. El tempo define dónde caen los beats y
+        cuánto dura la partida; la velocidad de la barra la eliges tú en VELOCIDAD.
       </p>
     </div>
   )
@@ -208,9 +220,11 @@ export function SongLibrary({ selected, onSelect }: Props) {
  */
 function BpmEditor({
   song,
+  beatsPerRound,
   onSave,
 }: {
   song: SongStatus
+  beatsPerRound: number
   onSave: (bpm: number | null) => void
 }) {
   const detected = song.bpm ?? 120
@@ -252,6 +266,21 @@ function BpmEditor({
           Volver al detectado
         </button>
       )}
+
+      <span className="basis-full text-ink-muted">
+        {valid ? (
+          <>
+            La barra tarda{' '}
+            <b className="text-cyan">
+              {(beatRoundDurationMs(parsed, beatsPerRound) / 1000).toFixed(2)} s
+            </b>{' '}
+            en cruzar, a {beatsPerRound} beats por ronda. Para cambiar eso, usa VELOCIDAD: el
+            tempo solo alinea la barra con la música.
+          </>
+        ) : (
+          <>Fuera del rango recomendado.</>
+        )}
+      </span>
 
       <span className="basis-full text-ink-muted">
         Si el juego va al doble o a la mitad de velocidad de lo que escuchas, prueba con la

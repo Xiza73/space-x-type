@@ -85,6 +85,8 @@ export function GameCanvas({
       let bpm: number | null = DEFAULTS.bpm
       let track: TrackInfo | null = null
 
+      const preset = SPEED_PRESETS.find((p) => p.id === speed) ?? SPEED_PRESETS[1]
+
       // La música arranca PRIMERO y la cuenta va encima: la intro de la canción
       // suena mientras el jugador se acomoda, en vez de sonar en el vacío.
       if (buffer !== null && song !== null) {
@@ -92,7 +94,9 @@ export function GameCanvas({
           const beatmap = await songBeatmap(song.id)
           if (cancelled) return
           playback = playSong(buffer)
-          rhythm = beatmapRhythm(beatmap, playback.startedAtMs)
+          // El tempo lo pone el beatmap; la velocidad, el jugador. Son ejes
+          // distintos y por eso entran por separado.
+          rhythm = beatmapRhythm(beatmap, playback.startedAtMs, preset.beatsPerRound)
           bpm = null
           track = {
             title: song.title,
@@ -104,7 +108,6 @@ export function GameCanvas({
           return
         }
       } else if (rhythmMode === 'song') {
-        const preset = SPEED_PRESETS.find((p) => p.id === speed) ?? SPEED_PRESETS[1]
         rhythm = songRhythm(preset.roundDurationMs)
       } else {
         rhythm = arcadeRhythm(DEFAULTS.speedScale)
