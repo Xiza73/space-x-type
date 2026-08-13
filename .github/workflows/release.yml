@@ -61,9 +61,14 @@ jobs:
         with:
           bun-version: latest
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-targets }}
+      # Igual que en CI: la versión sale de `rust-toolchain.toml`. El target se
+      # agrega **a ese** toolchain, no a uno nuevo.
+      - name: Toolchain fijado
+        run: rustup show active-toolchain
+
+      - name: Target de la arquitectura
+        if: matrix.rust-targets != ''
+        run: rustup target add ${{ matrix.rust-targets }}
 
       - uses: swatinem/rust-cache@v2
         with:

@@ -54,9 +54,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+      # No se instala `stable`: `rust-toolchain.toml` fija la versión y rustup la
+      # baja sola. Pedir `stable` aquí traería un compilador distinto al del
+      # archivo, que es justo lo que se quiere evitar.
+      - name: Toolchain fijado
+        run: rustup show active-toolchain
 
       - uses: swatinem/rust-cache@v2
         with:
