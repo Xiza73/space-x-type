@@ -17,6 +17,11 @@ type Props = {
   highlight?: number | null
   /** Se muestra cuando la tabla está vacía. */
   emptyHint?: string
+  /**
+   * Su propio encabezado. Se apaga dentro de un modal, que ya tiene título:
+   * si no, "RANKING" aparece dos veces, una arriba de la otra.
+   */
+  heading?: boolean
 }
 
 /**
@@ -26,7 +31,13 @@ type Props = {
  * verdad hace falta: un ranking que solo se puede ver perdiendo una partida es
  * un ranking que no se mira.
  */
-export function Ranking({ mode, entries, highlight = null, emptyHint }: Props) {
+export function Ranking({
+  mode,
+  entries,
+  highlight = null,
+  emptyHint,
+  heading = true,
+}: Props) {
   const [loaded, setLoaded] = useState<ScoreEntry[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -52,8 +63,16 @@ export function Ranking({ mode, entries, highlight = null, emptyHint }: Props) {
   const board = entries ?? loaded
 
   return (
-    <div className="flex w-[min(360px,86vw)] flex-col gap-2 rounded-2xl border border-line-card bg-linear-to-b from-surface to-surface-deep px-5 py-4 text-left">
-      <span className="text-[11px] font-bold tracking-[3px] text-ink-muted">RANKING</span>
+    <div
+      className={`flex w-[min(360px,86vw)] flex-col gap-2 text-left ${
+        heading
+          ? 'rounded-2xl border border-line-card bg-linear-to-b from-surface to-surface-deep px-5 py-4'
+          : ''
+      }`}
+    >
+      {heading && (
+        <span className="text-[11px] font-bold tracking-[3px] text-ink-muted">RANKING</span>
+      )}
 
       {error !== null && <p className="text-[13px] text-red">{error}</p>}
 

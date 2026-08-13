@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { resumeAudio } from './audio/context'
 import { GameCanvas, type RhythmMode, type SpeedId } from './components/GameCanvas'
 import { Overlays } from './components/Overlays'
+import { Modal } from './components/Modal'
 import { Ranking } from './components/Ranking'
 import { SongLibrary } from './components/SongLibrary'
 import { Toggle } from './components/Toggle'
@@ -46,6 +47,7 @@ export function App() {
   const [speed, setSpeed] = useState<SpeedId>(DEFAULTS.speed)
   const [song, setSong] = useState<SongStatus | null>(null)
   const [background, setBackground] = useState<BackgroundId>('visual')
+  const [showRanking, setShowRanking] = useState(false)
 
   useEffect(() => {
     if (started) return
@@ -85,7 +87,16 @@ export function App() {
 
   return (
     <>
-      <main className="grid h-full place-content-center justify-items-center gap-6 px-6 text-center">
+      {/*
+        La fila de acción va **fuera** del contenido que scrollea, anclada abajo.
+        Recortar textos hasta que entre en 1024x640 —el tamaño mínimo de la
+        ventana— funciona hasta el día que se agrega un control y vuelve a
+        romperse. Así, JUGAR está a la vista con cualquier configuración y
+        cualquier tamaño, y lo que sobra es el menú, que sí puede scrollear.
+      */}
+      <main className="flex h-full flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex min-h-full max-w-[960px] flex-col items-center justify-center gap-5 px-6 py-6 text-center">
         <p className="text-[11px] font-bold tracking-[6px] text-ink-muted">
           1P // MODO {RHYTHM_OPTIONS.find((o) => o.value === rhythmMode)?.label}
         </p>
@@ -160,23 +171,49 @@ export function App() {
 
         {rhythmMode === 'song' && <SongLibrary selected={song} onSelect={setSong} />}
 
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-line-card bg-night/85 px-6 py-3">
+          <button
+            onClick={() => void start()}
+            className="cursor-pointer rounded-xl bg-linear-to-b from-magenta-light to-magenta-dark px-14 py-3.5 font-display text-xl text-white shadow-[0_6px_22px_rgb(255_46_136/0.4)] transition-transform duration-150 hover:-translate-y-0.5"
+          >
+            JUGAR ⏎
+          </button>
+
+          {/*
+            El ranking en un modal y no en la pantalla: abierto ocupaba una
+            tarjeta entera y competía con lo que sí hay que decidir antes de
+            jugar.
+          */}
+          <button
+            onClick={() => setShowRanking(true)}
+            className="cursor-pointer rounded-xl border-2 border-line px-6 py-3.5 font-bold text-ink-soft hover:border-ink-muted"
+          >
+            VER RANKING
+          </button>
+        </div>
+      </main>
+
+      <Modal open={showRanking} title="RANKING" onClose={() => setShowRanking(false)}>
         {/*
-          El ranking de la configuración elegida, y se actualiza al tocar los
-          controles. Antes solo se veía al perder una partida, o sea que para
-          mirar el top 5 había que jugar y morir: un ranking así no se mira.
+          Qué tabla se está mirando. Dentro de un modal los controles quedan
+          tapados, así que sin esta línea no se sabe a qué configuración
+          corresponde el top 5 — y cada una tiene la suya.
         */}
+        <p className="text-[12px] text-ink-muted">
+          {sequenceType === 'arrows' ? 'Flechas' : `Palabras (${language})`} ·{' '}
+          {rhythmMode === 'arcade' ? 'Arcade' : `Canción ${song?.title ?? `${speed}`}`}
+        </p>
+
         <Ranking
+          heading={false}
           mode={modeKey(sequenceType, language, rhythmMode, speed)}
           emptyHint="Nadie puntuó todavía en esta configuración. Estrenala."
         />
+      </Modal>
 
-        <button
-          onClick={() => void start()}
-          className="cursor-pointer rounded-xl bg-linear-to-b from-magenta-light to-magenta-dark px-14 py-4 font-display text-xl text-white shadow-[0_6px_22px_rgb(255_46_136/0.4)] transition-transform duration-150 hover:-translate-y-0.5"
-        >
-          JUGAR ⏎
-        </button>
-      </main>
       <Overlays />
     </>
   )

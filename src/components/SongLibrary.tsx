@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 
 import { measureDurationMs } from '../game/constants'
+import { SongPicker } from './SongPicker'
 import {
   deleteSong,
-  effectiveBpm,
-  formatDuration,
   listSongs,
   processSong,
   setSongBpm,
@@ -113,90 +112,47 @@ export function SongLibrary({ selected, onSelect }: Props) {
       {error !== null && <p className="text-[13px] text-red">{error}</p>}
       {notice !== null && <p className="text-[13px] text-cyan">{notice}</p>}
 
-      <ul className="flex flex-col gap-1">
-        <li>
-          <button
-            onClick={() => onSelect(null)}
-            aria-pressed={selected === null}
-            className={`w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm ${
-              selected === null ? 'bg-cyan/20 text-cyan' : 'bg-sunken text-ink-soft'
-            }`}
-          >
-            Chiptune simulado
-            <span className="ml-2 text-[12px] text-ink-muted">tempo a elección</span>
-          </button>
-        </li>
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <SongPicker songs={songs} selected={selected} onSelect={onSelect} />
+        </div>
 
-        {songs.map((song) => {
-          const playable = song.intact && song.bpm !== null
-          const bpm = effectiveBpm(song)
-          return (
-            <li key={song.id} className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => playable && onSelect(song)}
-                  aria-pressed={selected?.id === song.id}
-                  disabled={!playable}
-                  className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${
-                    selected?.id === song.id ? 'bg-cyan/20 text-cyan' : 'bg-sunken'
-                  } ${playable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
-                >
-                  <span className="min-w-0 flex-1 truncate" title={song.title}>
-                    {song.title}
-                  </span>
-                  <span className="shrink-0 text-[12px] text-ink-muted">
-                    {formatDuration(song.durationSec)}
-                  </span>
-                  <span className="shrink-0 text-[11px] font-bold tracking-[1px]">
-                    {!song.intact ? (
-                      <span className="text-red">ROTA</span>
-                    ) : bpm === null ? (
-                      <span className="text-ink-muted">SIN ANALIZAR</span>
-                    ) : (
-                      <span className={song.bpmOverride === null ? 'text-gold' : 'text-cyan'}>
-                        {Math.round(bpm)} BPM
-                      </span>
-                    )}
-                  </span>
-                </button>
+        {/*
+          Las acciones son de la canción **elegida**, no de cada fila. Con la
+          lista abierta había un par de botones por canción; en un combo eso no
+          entra, y tampoco hace falta: se ajusta o se borra lo que se está por
+          jugar.
+        */}
+        {selected !== null && (
+          <>
+            {selected.bpm !== null && (
+              <button
+                onClick={() => setEditing(editing === selected.id ? null : selected.id)}
+                aria-label={`Ajustar tempo de ${selected.title}`}
+                aria-expanded={editing === selected.id}
+                className="shrink-0 cursor-pointer rounded-lg border-2 border-line px-3 py-2.5 text-[13px] text-ink-muted hover:border-cyan hover:text-cyan"
+              >
+                ♪
+              </button>
+            )}
+            <button
+              onClick={() => void remove(selected.id)}
+              aria-label={`Eliminar ${selected.title}`}
+              className="shrink-0 cursor-pointer rounded-lg border-2 border-line px-3 py-2.5 text-[13px] text-ink-muted hover:border-red hover:text-red"
+            >
+              ✕
+            </button>
+          </>
+        )}
+      </div>
 
-                {song.bpm !== null && (
-                  <button
-                    onClick={() => setEditing(editing === song.id ? null : song.id)}
-                    aria-label={`Ajustar tempo de ${song.title}`}
-                    aria-expanded={editing === song.id}
-                    className="shrink-0 cursor-pointer rounded px-2 py-1 text-[12px] text-ink-muted hover:text-cyan"
-                  >
-                    ♪
-                  </button>
-                )}
-                <button
-                  onClick={() => void remove(song.id)}
-                  aria-label={`Eliminar ${song.title}`}
-                  className="shrink-0 cursor-pointer rounded px-2 py-1 text-[12px] text-ink-muted hover:text-red"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {editing === song.id && song.bpm !== null && (
-                <BpmEditor song={song} onSave={(value) => void saveBpm(song.id, value)} />
-              )}
-            </li>
-          )
-        })}
-      </ul>
-
-      {songs.length === 0 && (
-        <p className="text-[13px] text-ink-muted">
-          Todavía no hay canciones. Procesar una es de una sola vez: después queda guardada.
-        </p>
+      {selected !== null && editing === selected.id && selected.bpm !== null && (
+        <BpmEditor song={selected} onSave={(value) => void saveBpm(selected.id, value)} />
       )}
 
       <p className="text-[12px] text-ink-muted">
-        Procesar descarga el audio y detecta el tempo. El tempo es la velocidad: la barra
-        cruza un compás de cuatro beats, así que más BPM es barra más rápida. Se admiten
-        canciones de <b className="text-ink-soft">1 a 10 minutos</b>.
+        El tempo es la velocidad. Canciones de{' '}
+        <b className="text-ink-soft">1 a 10 minutos</b>.
       </p>
     </div>
   )
