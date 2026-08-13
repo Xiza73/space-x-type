@@ -99,6 +99,15 @@ Durante la partida los ojos van de las casillas al marcador. La escalera de difi
 ahí, entre las dos. El puntaje, el combo y el tiempo van arriba: son contexto, no
 información de acción.
 
+De ahí sale el reparto vertical: **la mitad de arriba es del visualizador y la de abajo es
+del juego.** Las casillas van al 68% del alto y el riel al 80%, juntos y abajo; la figura va
+centrada al 33%, arriba. Entre los dos bloques queda una franja vacía.
+
+Antes las casillas estaban al 42% y el riel al 62%, con la figura en el medio de las dos: el
+fondo se metía **dentro** del área de juego en vez de estar detrás, y las tres cosas se leían
+como una sola embarullada. Juntar el juego abajo también acortó el recorrido de la mirada
+entre lo que hay que tipear y dónde hay que confirmar.
+
 ## Tipografía
 
 | Fuente | Pesos | Uso |
@@ -127,16 +136,23 @@ sobre todo, con `pointer-events:none`.
 del anillo. Reemplaza al fondo psicodélico del prototipo **y** al plan de poner el video de
 YouTube de fondo.
 
-Cada barra lee **su propia banda de frecuencia**, repartidas en escala logarítmica. Esa es la
-regla que no se puede romper: un intento anterior agrupaba todo en tres bandas gruesas, y
-dentro de un grupo todas las luces recibían el mismo valor, así que se prendían juntas. El
-resultado era un latido, no un espectro. Con una banda por barra, moverse todas igual es
-imposible por construcción.
+**El estado base es la figura sola, sin ninguna barra.** Hay una compuerta de nivel: lo que
+no pasa el umbral no se dibuja. Sin eso, el piso de ruido del análisis mantenía todo el
+anillo levantado a media asta y las barras se leían como decoración permanente en vez de
+como una reacción a un sonido.
 
-El reparto es logarítmico y no lineal porque el oído oye en octavas: con reparto lineal, la
-mitad de las barras cae arriba de 5 kHz, donde no pasa nada, y el bombo y la voz se aplastan
-en las dos primeras. Además se realza progresivamente hacia los agudos, o si no ese lado del
-anillo queda plano en cualquier canción.
+Cada barra lee **su propia banda de frecuencia**, repartidas en escala logarítmica porque el
+oído oye en octavas. Esa es la regla que no se puede romper: un intento anterior agrupaba
+todo en tres bandas gruesas, y dentro de un grupo todas las luces recibían el mismo valor,
+así que se prendían juntas. Era un latido, no un espectro.
+
+**El reparto banda→posición va mezclado**, con semilla. Sin mezclar, las frecuencias quedan
+ordenadas alrededor del círculo y un golpe de bombo levanta un solo sector: se ve como una
+aguja girando. Mezclado, un sonido enciende posiciones dispersas del anillo, que es el efecto
+de los videos musicales.
+
+72 barras con el trazo al 80% del espacio entre ellas: gruesas y pegadas, no palitos sueltos.
+Bajar de 96 a 72 es lo que deja engrosar el trazo sin que se separen.
 
 **Catálogo de figuras** — `vinilo`, `auriculares`, `casco`, `nucleo`. Todas circulares y
 dibujadas con primitivas de canvas: el proyecto no lleva assets. La figura se elige con un
@@ -144,26 +160,24 @@ hash del id de la canción, así que **es estable por canción** —la misma can
 igual, y eso le da identidad— pero cambia entre canciones.
 
 Los tramos del anillo donde hay barras son parte de cada figura, no decoración: los
-auriculares dejan libre donde van las orejeras, el casco deja libre el visor. Las barras salen
-de donde la figura no está.
+auriculares dejan libre donde van las orejeras, el casco deja libre el visor.
 
-> ✅ **Medido con el gameplay corriendo**, que es lo que esta regla venía pidiendo desde el
-> principio. A 1280×720 con 96 barras, medianas de tandas alternadas para cancelar la deriva
-> de la máquina: el render pasa de **0.223 ms a 0.505 ms** por frame. El visualizador cuesta
-> **0.282 ms**, el 3% del presupuesto de 16.67 ms a 60fps.
+> ✅ **Medido con el gameplay corriendo.** A 1280×720, en el **peor caso** —las 72 barras
+> encendidas al mismo tiempo—, medianas de tandas alternadas para cancelar la deriva de la
+> máquina: el render pasa de **0.162 ms a 0.315 ms** por frame. El visualizador cuesta
+> **0.153 ms**, el 1.9% del presupuesto de 16.67 ms a 60fps. En reposo cuesta bastante menos,
+> porque las barras apagadas ni entran al dibujo.
 >
 > El contraste del riel **no se mueve**: 105 puntos de luminancia entre el centro de la zona y
-> el borde, idéntico con el fondo apagado y con cualquiera de las cuatro figuras. El riel se
-> dibuja con rellenos opacos encima. La pantalla iluminada pasa del 7.2% al 10-11%, muy por
-> debajo del 49-65% que llegaba a ocupar el campo de luces.
+> el borde, idéntico con el fondo apagado y con cualquiera de las cuatro figuras.
 >
-> Aun así **es apagable** desde el menú (`FONDO: VISUAL / LISO`). Es lo único que dibuja de
-> más por frame. El fondo nunca le gana al loop de juego.
+> Aun así **es apagable** desde el menú (`FONDO: VISUAL / LISO`). El fondo nunca le gana al
+> loop de juego.
 
-**Un gradiente para las 96 barras.** Se define hacia arriba y son las barras las que giran
+**Un gradiente para todas las barras.** Se define hacia arriba y son las barras las que giran
 debajo de él, porque un gradiente de canvas se pinta con la transformación vigente. Armarlo
-por barra y por frame costaba **0.685 ms** contra 0.282 ms así — más del doble. Es el error
-clásico de este tipo de efecto y hay que resistirlo.
+por barra y por frame costaba **0.685 ms** — más de cuatro veces. Es el error clásico de este
+tipo de efecto y hay que resistirlo.
 
 El fondo psicodélico original usaba `filter: blur(34px) contrast(18)` sobre el contenedor
 —ese par es lo que produce el efecto *metaball* de lámpara de lava; separados no hacen nada—

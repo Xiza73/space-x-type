@@ -28,9 +28,22 @@ export type Rect = { x: number; y: number; width: number; height: number }
  * `CanvasRenderingContext2D` para verificar que llamaste a `fillRect` no prueba
  * que el juego se vea bien: prueba que escribiste el mock.
  */
+/**
+ * Casillas y riel viven **abajo y juntos**, no repartidos por la pantalla.
+ *
+ * Es lo que le deja al visualizador una zona propia arriba. Con las casillas al
+ * 42% y el riel al 62%, la figura quedaba entre las dos y se leía como una sola
+ * cosa embarullada: el fondo se metía en el medio del área de juego en vez de
+ * estar detrás. Ahora la mitad de arriba es del círculo y la de abajo es del
+ * juego, y el ojo separa las dos de un vistazo.
+ *
+ * Los dos bloques también quedaron más cerca entre sí —68% y 80%—, así que el
+ * recorrido de la mirada entre lo que hay que tipear y dónde hay que confirmar
+ * es más corto que antes.
+ */
 export function railLayout(w: number, h: number): Rect {
   const width = Math.min(RAIL_MAX_W, w * RAIL_W_RATIO)
-  return { x: w / 2 - width / 2, y: h * 0.62, width, height: RAIL_H }
+  return { x: w / 2 - width / 2, y: h * 0.8, width, height: RAIL_H }
 }
 
 /** Posición del marcador. Recorta fuera de `[0, 1]`: el progreso puede pasarse. */
@@ -41,7 +54,7 @@ export function markerX(rail: Rect, progress: number): number {
 /** Esquina superior izquierda de cada casilla de la secuencia. */
 export function tileLayout(count: number, w: number, h: number): Rect[] {
   const totalW = count * TILE + (count - 1) * TILE_GAP
-  const y = h * 0.42 - TILE / 2
+  const y = h * 0.68 - TILE / 2
   const startX = w / 2 - totalW / 2
 
   return Array.from({ length: count }, (_, i) => ({
@@ -254,7 +267,7 @@ function drawFeedback(
   ctx.textAlign = 'center'
   ctx.font = `700 44px ${FONTS.display}`
   ctx.fillStyle = color
-  ctx.fillText(text, w / 2, h * 0.26)
+  ctx.fillText(text, w / 2, h * 0.56)
   ctx.restore()
 }
 

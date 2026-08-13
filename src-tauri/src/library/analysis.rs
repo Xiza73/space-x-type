@@ -18,8 +18,11 @@ use super::store::LibraryError;
 const FRAME: usize = 1024;
 const HOP: usize = 512;
 
-/// Rango de tempo que se busca. Fuera de aquí se asume error de octava: una
-/// canción de 60 BPM se detecta como 120, y para el juego está bien.
+/// Rango de tempo que se busca. Fuera de aquí se dobla o se parte a la mitad:
+/// una canción de 60 BPM se detecta como 120, y para el juego está bien.
+///
+/// Adentro del rango, elegir entre un tempo y su mitad lo decide
+/// `octave_weight`, no la autocorrelación sola — que no puede.
 const MIN_BPM: f32 = 70.0;
 const MAX_BPM: f32 = 180.0;
 
@@ -198,14 +201,47 @@ pub fn estimate_bpm(novelty: &[f32], frames_per_sec: f32) -> f32 {
     for lag in min_lag..=max_lag {
         let overlap = centered.len() - lag;
         let sum: f32 = (0..overlap).map(|i| centered[i] * centered[i + lag]).sum();
-        let score = sum / overlap as f32;
-        if score > best_score {
-            best_score = score;
+
+        // Se divide por el largo TOTAL, no por el solapamiento.
+        //
+        // Dividir por el solapamiento —que se achica a medida que crece el
+        // lag— infla el puntaje de los lags largos, o sea que el estimador
+        // quedaba sesgado hacia los tempos lentos por pura aritmética. Con un
+        // divisor constante, un tren de pulsos da el mismo puntaje en el
+        // período y en sus múltiplos, que es lo correcto: la preferencia entre
+        // octavas la decide el peso perceptual, no un artefacto.
+        let score = sum / centered.len() as f32;
+
+        let weighted = score * octave_weight(60.0 * frames_per_sec / lag as f32);
+        if weighted > best_score {
+            best_score = weighted;
             best_lag = lag;
         }
     }
 
     60.0 * frames_per_sec / best_lag as f32
+}
+
+/// Tempo que se prefiere cuando hay que desempatar entre octavas.
+const PREFERRED_BPM: f32 = 125.0;
+/// Ancho de la preferencia, en logaritmos. Más chico = más terco con 125.
+const PREFERRED_SPREAD: f32 = 0.4;
+
+/// Peso perceptual del tempo, para resolver el **error de octava**.
+///
+/// Un tren de pulsos a 150 BPM se autocorrelaciona igual de bien a 75: cada dos
+/// golpes también hay un período. La matemática sola no puede elegir, y sin un
+/// criterio extra el estimador devolvía la mitad del tempo real — que era
+/// jugable mientras la velocidad de la barra se elegía aparte, y dejó de serlo
+/// cuando el BPM pasó a ser la velocidad.
+///
+/// El criterio es el mismo que usa una persona al marcar el pulso con el pie:
+/// entre dos tempos que encajan, se elige el más cercano a ~125 BPM. Es una
+/// campana en escala logarítmica, porque las octavas son multiplicativas: 60 y
+/// 240 están igual de lejos de 120.
+fn octave_weight(bpm: f32) -> f32 {
+    let distance = (bpm / PREFERRED_BPM).ln() / PREFERRED_SPREAD;
+    (-0.5 * distance * distance).exp()
 }
 
 /// Fase del primer beat: el desplazamiento que hace que un tren de pulsos al
@@ -390,6 +426,74 @@ mod tests {
                 "esperaba {esperado}, detectó {detectado}"
             );
         }
+    }
+
+    /// Patrón de bombo y caja: golpes fuertes y flojos alternados.
+    ///
+    /// Es como suena casi toda la música popular, y es **la trampa clásica del
+    /// error de octava**: los golpes fuertes solos ya forman un pulso a la
+    /// mitad del tempo, así que la autocorrelación encaja igual de bien ahí.
+    fn backbeat_track(bpm: f32, seconds: f32) -> Vec<f32> {
+        let total = (seconds * SR as f32) as usize;
+        let mut out = vec![0.0f32; total];
+        let period = 60.0 / bpm * SR as f32;
+
+        let mut position = 0.0f32;
+        let mut beat = 0usize;
+        while (position as usize) < total {
+            let start = position as usize;
+            let len = 300.min(total - start);
+            let strength = if beat % 2 == 0 { 1.0 } else { 0.35 };
+            for k in 0..len {
+                let decay = 1.0 - k as f32 / len as f32;
+                out[start + k] = strength * decay * decay * (k as f32 * 0.35).sin();
+            }
+            position += period;
+            beat += 1;
+        }
+        out
+    }
+
+    #[test]
+    fn no_se_come_la_mitad_del_tempo_en_un_patron_con_acentos() {
+        // El caso real que se rompió: una canción rápida se procesaba a 75 BPM.
+        // Mientras la velocidad de la barra se elegía aparte no molestaba;
+        // cuando el BPM pasó a ser la velocidad, quedó lentísima.
+        let frames_per_sec = SR as f32 / HOP as f32;
+
+        for esperado in [128.0f32, 140.0, 150.0, 160.0, 174.0] {
+            let novelty = novelty(&backbeat_track(esperado, 30.0), FRAME, HOP);
+            let detectado = estimate_bpm(&novelty, frames_per_sec);
+
+            assert!(
+                (detectado - esperado).abs() < 4.0,
+                "esperaba {esperado}, detectó {detectado} (¿mitad de tempo?)"
+            );
+        }
+    }
+
+    #[test]
+    fn la_preferencia_de_octava_es_simetrica_en_logaritmo() {
+        // 60 y 250 tienen que estar igual de lejos de 125: las octavas son
+        // multiplicativas, no aditivas. Si esto se hace lineal, la preferencia
+        // se corre hacia los tempos rápidos y aparece el error al revés.
+        let mitad = octave_weight(PREFERRED_BPM / 2.0);
+        let doble = octave_weight(PREFERRED_BPM * 2.0);
+        assert!((mitad - doble).abs() < 1e-6, "mitad {mitad}, doble {doble}");
+        assert!(octave_weight(PREFERRED_BPM) > mitad);
+        assert!((octave_weight(PREFERRED_BPM) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn el_tempo_lento_de_verdad_sigue_saliendo_lento() {
+        // La preferencia por 125 no puede convertirse en "todo es 125": una
+        // balada tiene que salir lenta, o el ajuste habría cambiado un sesgo
+        // por el opuesto.
+        let frames_per_sec = SR as f32 / HOP as f32;
+        let novelty = novelty(&click_track(80.0, 30.0, 0.0), FRAME, HOP);
+        let detectado = estimate_bpm(&novelty, frames_per_sec);
+
+        assert!((detectado - 80.0).abs() < 4.0, "detectó {detectado}");
     }
 
     #[test]
