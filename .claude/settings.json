@@ -41,6 +41,7 @@
       "Bash(gh issue list:*)"
     ],
     "ask": [
+      "Bash(bun run tauri build:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(gh pr create:*)",
@@ -49,7 +50,6 @@
       "Bash(cargo add:*)"
     ],
     "deny": [
-      "Bash(bun run tauri build:*)",
       "Bash(cargo build:*)",
       "Bash(npm:*)",
       "Bash(pnpm:*)",
