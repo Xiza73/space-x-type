@@ -18,13 +18,32 @@ use super::store::LibraryError;
 const FRAME: usize = 1024;
 const HOP: usize = 512;
 
-/// Rango de tempo que se busca. Fuera de aquí se dobla o se parte a la mitad:
-/// una canción de 60 BPM se detecta como 120, y para el juego está bien.
+/// Rango donde se busca el tempo: el del **pulso que se siente**, no el de
+/// cualquier periodicidad que haya en el audio.
 ///
-/// Adentro del rango, elegir entre un tempo y su mitad lo decide
-/// `octave_weight`, no la autocorrelación sola — que no puede.
-const MIN_BPM: f32 = 70.0;
-const MAX_BPM: f32 = 180.0;
+/// Va hasta 145 a propósito, y eso significa que una canción genuinamente más
+/// rápida sale **a la mitad**. Es un intercambio elegido con datos, no un
+/// descuido.
+///
+/// El error que aparece una y otra vez es el contrario: baladas detectadas al
+/// doble. "Yellow" daba 172 en vez de 86, y no por falta de ajuste — tiene una
+/// guitarra rasgueada en corcheas, todas igual de fuertes, así que el pulso de
+/// 86 **no está en la fuerza de los golpes** sino en la armonía, que esta
+/// función de novedad no ve. Se midieron tres formas de distinguirlo —filtrar
+/// por banda, mover la preferencia de tempo, comparar la fuerza de los golpes
+/// intermedios— y ninguna separa una balada con corcheas de un tema rápido con
+/// acentos. La información no está en la señal que miramos.
+///
+/// Medido sobre nueve canciones reales, estrechar el rango arregla "Yellow" y
+/// **no mueve ninguna otra**, salvo "Can Can" —rápida de verdad— que pasa a
+/// salir a la mitad.
+///
+/// Se elige quedarse corto y no largo por dos razones: el error queda en **una
+/// sola dirección**, que es predecible y se corrige con el botón ×2; y para
+/// jugar, una barra lenta de más se juega igual, mientras que una a 172 con
+/// ocho teclas es injugable.
+const MIN_BPM: f32 = 60.0;
+const MAX_BPM: f32 = 145.0;
 
 /// Cuántos beats dura una ronda mientras el jugador no elija otra cosa.
 ///
@@ -198,8 +217,9 @@ pub fn estimate_bpm(novelty: &[f32], frames_per_sec: f32) -> f32 {
     let mean = novelty.iter().sum::<f32>() / novelty.len() as f32;
     let centered: Vec<f32> = novelty.iter().map(|v| v - mean).collect();
 
-    let min_lag = (60.0 * frames_per_sec / MAX_BPM).round().max(1.0) as usize;
-    let max_lag = ((60.0 * frames_per_sec / MIN_BPM).round() as usize).min(centered.len() / 2);
+    let (min_bpm, max_bpm) = search_range();
+    let min_lag = (60.0 * frames_per_sec / max_bpm).round().max(1.0) as usize;
+    let max_lag = ((60.0 * frames_per_sec / min_bpm).round() as usize).min(centered.len() / 2);
     if min_lag >= max_lag {
         return 120.0;
     }
@@ -225,6 +245,19 @@ pub fn estimate_bpm(novelty: &[f32], frames_per_sec: f32) -> f32 {
     }
 
     60.0 * frames_per_sec / best_lag as f32
+}
+
+/// Rango donde se busca el tempo. El banco lo puede mover para comparar.
+fn search_range() -> (f32, f32) {
+    #[cfg(test)]
+    if let Ok(v) = std::env::var("SXT_RANGO") {
+        if let Some((a, b)) = v.split_once(',') {
+            if let (Ok(a), Ok(b)) = (a.trim().parse(), b.trim().parse()) {
+                return (a, b);
+            }
+        }
+    }
+    (MIN_BPM, MAX_BPM)
 }
 
 /// Tempo que se prefiere cuando hay que desempatar entre octavas.
@@ -432,7 +465,9 @@ mod tests {
     fn detecta_el_tempo_de_una_pista_de_clicks() {
         let frames_per_sec = SR as f32 / HOP as f32;
 
-        for esperado in [90.0f32, 100.0, 120.0, 140.0, 160.0] {
+        // Todos dentro del rango de búsqueda. Uno más rápido sale a la mitad
+        // por diseño, y eso lo fija `un_tempo_rapido_de_verdad_sale_a_la_mitad`.
+        for esperado in [90.0f32, 100.0, 120.0, 140.0] {
             let novelty = novelty(&click_track(esperado, 30.0, 0.0), FRAME, HOP);
             let detectado = estimate_bpm(&novelty, frames_per_sec);
 
@@ -476,13 +511,48 @@ mod tests {
         // cuando el BPM pasó a ser la velocidad, quedó lentísima.
         let frames_per_sec = SR as f32 / HOP as f32;
 
-        for esperado in [128.0f32, 140.0, 150.0, 160.0, 174.0] {
+        for esperado in [100.0f32, 115.0, 128.0, 140.0] {
             let novelty = novelty(&backbeat_track(esperado, 30.0), FRAME, HOP);
             let detectado = estimate_bpm(&novelty, frames_per_sec);
 
             assert!(
                 (detectado - esperado).abs() < 4.0,
                 "esperaba {esperado}, detectó {detectado} (¿mitad de tempo?)"
+            );
+        }
+    }
+
+    #[test]
+    fn un_tempo_rapido_de_verdad_sale_a_la_mitad() {
+        // **Esto es el intercambio, escrito.** El rango de búsqueda llega a 145
+        // porque el error que aparece una y otra vez es el contrario —baladas
+        // detectadas al doble— y ninguna de las tres formas que se midieron
+        // logra distinguirlas.
+        //
+        // Así el error queda en una sola dirección, que es predecible y se
+        // corrige con el botón ×2. Si algún día esto empieza a devolver el
+        // tempo entero, es que alguien ensanchó el rango y volvió el problema.
+        let frames_per_sec = SR as f32 / HOP as f32;
+        let novelty = novelty(&click_track(170.0, 30.0, 0.0), FRAME, HOP);
+        let detectado = estimate_bpm(&novelty, frames_per_sec);
+
+        assert!(
+            (detectado - 85.0).abs() < 4.0,
+            "un tema de 170 tiene que salir a la mitad, salió {detectado}"
+        );
+    }
+
+    #[test]
+    fn el_rango_de_busqueda_es_el_del_pulso_que_se_siente() {
+        // Un tempo fuera del rango no se puede devolver, por construcción.
+        for bpm in [70.0f32, 100.0, 130.0, 145.0, 170.0, 200.0] {
+            let frames_per_sec = SR as f32 / HOP as f32;
+            let novelty = novelty(&click_track(bpm, 25.0, 0.0), FRAME, HOP);
+            let detectado = estimate_bpm(&novelty, frames_per_sec);
+
+            assert!(
+                (MIN_BPM..=MAX_BPM).contains(&detectado),
+                "a {bpm} BPM devolvió {detectado}, fuera de {MIN_BPM}–{MAX_BPM}"
             );
         }
     }

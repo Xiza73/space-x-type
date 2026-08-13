@@ -34,18 +34,22 @@ jobs:
             runner: macos-latest
             args: --target aarch64-apple-darwin
             rust-targets: aarch64-apple-darwin
+            triple: aarch64-apple-darwin
           - nombre: macOS (Intel)
             runner: macos-latest
             args: --target x86_64-apple-darwin
             rust-targets: x86_64-apple-darwin
+            triple: x86_64-apple-darwin
           - nombre: Linux
             runner: ubuntu-22.04
             args: ''
             rust-targets: ''
+            triple: x86_64-unknown-linux-gnu
           - nombre: Windows
             runner: windows-latest
             args: ''
             rust-targets: ''
+            triple: x86_64-pc-windows-msvc
 
     runs-on: ${{ matrix.runner }}
     steps:
@@ -75,6 +79,16 @@ jobs:
           workspaces: src-tauri
 
       - run: bun install --frozen-lockfile
+
+      # QuickJS va empaquetado con la app. Sin un runtime de JavaScript, YouTube
+      # rechaza la descarga con un 403 que no menciona el runtime ni una vez.
+      #
+      # El binario no se versiona —son 1–2 MB por plataforma y cambian de
+      # versión— así que se baja aquí. Si falta, `tauri build` falla, que es lo
+      # correcto: es mejor que no compile a que salga un instalador sin el
+      # runtime adentro.
+      - name: QuickJS para el sidecar
+        run: bun run tools ${{ matrix.triple }}
 
       # La acción corre `beforeBuildCommand` (o sea `bun run build`) y después
       # empaqueta. La versión sale de `tauri.conf.json`.

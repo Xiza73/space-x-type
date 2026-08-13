@@ -19,6 +19,14 @@ tauri-build = { version = "2.6.3", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
+# Cliente HTTPS para bajar yt-dlp. La stdlib no tiene HTTP, así que hace falta
+# uno; se elige `ureq` sobre `reqwest` porque es **bloqueante** —encaja con el
+# hilo donde ya corre la descarga, sin reestructurar los comandos a async— y
+# porque `reqwest` ya está en el árbol pero **sin pila TLS**, así que tampoco
+# salía gratis.
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+# Verificar el hash de lo que se descarga. Ya venía como dependencia transitiva.
+sha2 = "0.10"
 # Parsear la URL a mano en un límite de confianza es de los errores más clásicos
 # que hay. Aquí la dependencia se justifica sola.
 url = "2"
