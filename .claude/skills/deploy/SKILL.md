@@ -37,6 +37,11 @@ updater y los metadatos del bundle empiezan a mentir.
 | `package.json` | `version` |
 | `src-tauri/Cargo.toml` | `[package] version` |
 | `src-tauri/tauri.conf.json` | `version` |
+| `src-tauri/Cargo.lock` | entrada `space-x-type` |
+
+El **lock también lleva la versión** y es el que más fácil se olvida, porque no se edita a
+mano: se actualiza solo corriendo `cargo metadata`. Si queda viejo, el diff aparece más
+adelante en un commit que no tiene nada que ver.
 
 SemVer: `fix` → patch · `feat` → minor · breaking → major.
 
