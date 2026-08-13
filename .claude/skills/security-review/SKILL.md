@@ -3,7 +3,7 @@ name: security-review
 description: Revisión de seguridad para una app Tauri que ejecuta un binario externo (yt-dlp) con input del usuario. Cubre inyección de comandos, validación de URLs, permisos/capabilities de Tauri, escritura en el filesystem y CSP del WebView. Usar al tocar comandos de Tauri, el pipeline de descarga de audio, rutas de archivos, o antes de un release.
 ---
 
-# Security review — space-type-rythm
+# Security review — SPACE x TYPE
 
 La app es de uso personal y offline, así que **no** hay superficie de red entrante, ni auth,
 ni datos de terceros. La superficie real es otra, y es más grande de lo que parece:
@@ -39,15 +39,25 @@ Antes de que la URL toque el proceso hijo:
 Un input inválido devuelve un error tipado al frontend. **No** se le muestra al usuario el
 stderr crudo del proceso hijo: puede filtrar rutas del sistema.
 
-## 3. Filesystem
+## 3. Filesystem y biblioteca personal
 
-- Todo lo que se descarga o cachea vive **dentro del directorio de datos de la app**
+La biblioteca es **estado persistente que el usuario acumula**. Corromperla o borrarla es
+una pérdida de datos real, no un bug cosmético.
+
+- Todo lo que se descarga o guarda vive **dentro del directorio de datos de la app**
   (`app_data_dir`). Nada fuera.
-- El nombre del archivo se deriva de un **ID sanitizado o un hash**, nunca del título del
-  video: un título puede traer `../`, separadores de ruta, caracteres nulos o nombres
+- El nombre de la carpeta se deriva del **ID del video sanitizado o un hash**, nunca del
+  título: un título puede traer `../`, separadores de ruta, caracteres nulos o nombres
   reservados de Windows (`CON`, `NUL`, `LPT1`).
 - Después de resolver la ruta final, verificar que sigue estando bajo el directorio base
   (chequeo anti *path traversal*, hecho sobre la ruta **canonicalizada**).
+- **Escritura atómica de `library.json`**: temporal + rename. Escribir en el lugar deja la
+  biblioteca ilegible si el proceso muere a mitad de camino.
+- El borrado de una canción se hace sobre una ruta **derivada del id validado**, nunca sobre
+  una ruta que venga del frontend. Un borrado recursivo con la ruta equivocada es
+  catastrófico e irreversible.
+- Un `library.json` corrupto o de una versión desconocida **no se descarta en silencio**: se
+  respalda y se avisa.
 - Cuidado con el espacio en disco: el audio se acumula. Debe haber una política de limpieza.
 
 ## 4. Tauri — capabilities y permisos
@@ -72,7 +82,7 @@ stderr crudo del proceso hijo: puede filtrar rutas del sistema.
 
 - Dependencia nueva → se justifica contra la alternativa nativa. Cada crate/paquete es
   superficie de ataque y trabajo de mantenimiento.
-- `cargo audit` y `pnpm audit` antes de un release.
+- `cargo audit` y `bun audit` antes de un release.
 
 ## Salida
 
@@ -83,4 +93,4 @@ Una línea por hallazgo, de más grave a menos:
 ```
 
 Un hallazgo necesita un **escenario de explotación concreto**, no una categoría genérica.
-Si no lo podés escribir, no es un hallazgo. Si no hay nada, decilo en una línea.
+Si no lo puedes escribir, no es un hallazgo. Si no hay nada, dilo en una línea.

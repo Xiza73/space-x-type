@@ -1,0 +1,180 @@
+@import 'tailwindcss';
+
+/**
+ * Fuentes embebidas. La app es de escritorio y tiene que andar sin internet,
+ * y además la CSP no permite orígenes remotos: nada de Google Fonts por CDN.
+ *
+ * Solo el subconjunto `latin` (cubre español e inglés completos, tildes y ñ
+ * incluidas). Sin `unicode-range` a propósito: se envía un archivo por variante,
+ * así que el navegador puede caer al sistema glifo por glifo cuando la fuente
+ * no tiene el carácter.
+ */
+@font-face {
+  font-family: 'Bungee';
+  src: url('./assets/fonts/bungee-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('./assets/fonts/chakra-petch-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('./assets/fonts/chakra-petch-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('./assets/fonts/chakra-petch-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/**
+ * Tokens de diseño. Fuente de verdad de la UI.
+ *
+ * `src/theme/tokens.ts` es el espejo de esta paleta para el canvas, que no puede
+ * usar clases. Los dos archivos NO pueden divergir: hay un test que los compara
+ * (`src/theme/tokens.test.ts`).
+ *
+ * Atención con los nombres: un color llamado `base` generaría `text-base`, que ya
+ * existe en Tailwind como tamaño de fuente. Por eso `night` y no `base`.
+ *
+ * `static` emite TODAS las variables. Sin eso Tailwind poda las que ninguna
+ * clase usa, y te encuentras con que `--color-magenta` existe o no según qué
+ * clases haya en el markup ese día. Una paleta a medias es peor que ninguna.
+ */
+@theme static {
+  /* superficies */
+  --color-night: #0b0b12;
+  --color-surface: #1c1c2a;
+  --color-surface-deep: #13131d;
+  --color-sunken: #15151f;
+  --color-track: #191924;
+  --color-track-deep: #101018;
+  --color-tile: #232336;
+
+  /* bordes */
+  --color-line: #3a3d56;
+  --color-line-card: #33364e;
+  --color-line-muted: #2c2f45;
+
+  /* texto */
+  --color-ink: #e8eaf6;
+  --color-ink-soft: #aab0cf;
+  --color-ink-muted: #8b8fae;
+
+  /* acentos — cada uno significa algo, no son intercambiables */
+  --color-magenta: #ff2e88;
+  --color-magenta-light: #ff5aa5;
+  --color-magenta-dark: #c1156b;
+  --color-cyan: #29e5ff;
+  /* Núcleo de la zona de acierto en el riel. Aqua bien claro: mantiene la
+     luminancia alta —que es lo que hace legible la rampa— pero con color
+     propio, para no ser el blanco de Audition. */
+  --color-flare: #7dffdd;
+  --color-gold: #ffd23e;
+  --color-gold-light: #ffe27a;
+  --color-gold-dark: #ffc21e;
+  --color-red: #ff4d6d;
+  --color-purple: #8b5cff;
+
+  /* El fallback no es decorativo: `latin` no trae flechas, así que los glifos
+     ←→↑↓ salen del sistema aunque el resto sea Bungee. */
+  --font-display: 'Bungee', system-ui, sans-serif;
+  --font-ui: 'Chakra Petch', system-ui, sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: linear-gradient(
+      180deg,
+      var(--color-track-deep) 0%,
+      var(--color-night) 55%,
+      #141420 100%
+    );
+    color: var(--color-ink);
+    font-family: var(--font-ui);
+  }
+}
+
+/* Texto cromado: gradiente vertical recortado al texto, con borde neón magenta
+   abajo y cyan arriba. Es la firma del estilo. Detalle en design-system.md. */
+@utility chrome {
+  background: linear-gradient(
+    180deg,
+    #f7f9ff 0%,
+    #c3c9de 34%,
+    #6f7794 50%,
+    #eef1fb 56%,
+    #8f97b5 100%
+  );
+  background-size: 100% 200%;
+  background-clip: text;
+  color: transparent;
+  animation: titleshine 5s linear infinite;
+  filter: drop-shadow(0 3px 0 rgb(255 46 136 / 0.55)) drop-shadow(0 -2px 0 rgb(41 229 255 / 0.4));
+}
+
+/* Scanlines sobre todo. Nunca intercepta clicks. */
+@utility scanlines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0.025) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+/* Viñeta azulada, centrada al 42% de altura como en el prototipo. */
+@utility vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 55% at 50% 42%, rgb(120 130 180 / 0.14), transparent 70%);
+}
+
+@keyframes countpop {
+  0% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+}
+
+@keyframes titleshine {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: 0% 200%;
+  }
+}

@@ -1,15 +1,15 @@
 ---
 description: Pasos de release — gate de calidad, versionado, build de binarios y tag
 argument-hint: "[major|minor|patch — por defecto patch]"
-allowed-tools: Read, Edit, Bash(git status:*), Bash(git log:*), Bash(git diff:*), Bash(pnpm test:*), Bash(pnpm lint:*), Bash(pnpm typecheck:*), Bash(cargo test:*), Bash(cargo clippy:*)
+allowed-tools: Read, Edit, Bash(git status:*), Bash(git log:*), Bash(git diff:*), Bash(bun run test:*), Bash(bun run lint:*), Bash(bun run typecheck:*), Bash(cargo test:*), Bash(cargo clippy:*)
 ---
 
 Preparar un release `$ARGUMENTS` (si está vacío: `patch`).
 
-Esto es una app de escritorio: **no hay servidor**. "Deploy" acá significa cortar una
+Esto es una app de escritorio: **no hay servidor**. "Deploy" aquí significa cortar una
 versión y generar los binarios nativos.
 
-## Precondiciones — verificá antes de tocar nada
+## Precondiciones — verifica antes de tocar nada
 
 - [ ] Estás en `dev` y está limpia (`git status`).
 - [ ] `dev` está al día con `origin`.
@@ -18,14 +18,14 @@ versión y generar los binarios nativos.
 ## 1. Gate de calidad — todo verde o no hay release
 
 ```bash
-pnpm typecheck
-pnpm lint
-pnpm test
+bun run typecheck
+bun run lint
+bun run test
 cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 cargo test   --manifest-path src-tauri/Cargo.toml
 ```
 
-Si algo falla: **pará y reportá la salida real.** No sigas.
+Si algo falla: **detente y reporta la salida real.** No sigas.
 
 ## 2. Versionar
 
@@ -50,16 +50,20 @@ git push origin v<X.Y.Z>
 
 ## 5. Binarios
 
-**No corras el build vos** — CLAUDE.md lo prohíbe y además tarda mucho. Decile al usuario
+**El build no lo corre el agente** — CLAUDE.md lo prohíbe y además tarda mucho. Hay que pedirle al usuario
 que corra:
 
 ```bash
-pnpm tauri build
+bun run tauri build
 ```
 
-Salida en `src-tauri/target/release/bundle/`. Recordá que **solo se generan binarios para
-la plataforma donde corrés el build** — para Windows/macOS/Linux hacen falta tres máquinas
-o CI con matriz de sistemas operativos.
+Salida en `src-tauri/target/release/bundle/`. **Solo se generan binarios para la plataforma
+donde corres el build.**
+
+Para los tres sistemas está `.github/workflows/release.yml`: empujar un tag `v*` dispara la
+matriz —macOS Apple Silicon, macOS Intel, Linux y Windows— y sube todo a un release en
+borrador. Antes de construir corre el gate completo, así que no puede publicarse algo que no
+pasó los tests.
 
 ## Notas
 
