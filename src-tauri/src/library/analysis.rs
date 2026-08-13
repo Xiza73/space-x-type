@@ -844,3 +844,81 @@ MEJOR: {}/{} aciertos con PREFERRED={} SPREAD={:.2}",
         60.0 * fps / best_lag as f32
     }
 }
+
+/// Banco de pruebas contra audio real.
+///
+/// Las señales sintéticas alcanzan para fijar propiedades —que más tempo sea
+/// barra más rápida, que no se coma la mitad— pero **no** para calibrar: un
+/// tren de clicks no se parece a una balada. Esto corre el análisis sobre las
+/// canciones de una biblioteca de verdad y muestra qué da cada variante.
+///
+/// La carpeta se pasa por entorno para no clavar la ruta del disco de nadie:
+///
+/// ```text
+/// SXT_SONGS_DIR="$APPDATA/com.xiza73.spacextype/songs" \
+///   cargo test --manifest-path src-tauri/Cargo.toml -- --ignored biblioteca_real --nocapture
+/// ```
+#[cfg(test)]
+mod banco {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn biblioteca_real() {
+        let Ok(dir) = std::env::var("SXT_SONGS_DIR") else {
+            println!("SXT_SONGS_DIR sin definir: no hay nada que medir");
+            return;
+        };
+
+        println!("\n{:<44} {:>9} {:>9} {:>9}", "canción", "completo", "graves", "medios");
+        for entry in std::fs::read_dir(&dir).expect("no se pudo leer la carpeta") {
+            let Ok(entry) = entry else { continue };
+            let carpeta = entry.path();
+            let Some(audio) = std::fs::read_dir(&carpeta)
+                .ok()
+                .and_then(|mut it| it.find_map(|e| {
+                    let p = e.ok()?.path();
+                    p.file_stem()?.to_str()?.starts_with("audio").then_some(p)
+                }))
+            else {
+                continue;
+            };
+
+            let Ok((samples, sr)) = decode(&audio) else { continue };
+            let fps = sr as f32 / HOP as f32;
+
+            let nov = novelty(&samples, FRAME, HOP);
+            let detectado = estimate_bpm(&nov, fps);
+
+            let nombre = carpeta.file_name().unwrap_or_default().to_string_lossy().to_string();
+            println!("{nombre:<44} {detectado:>9.1}");
+
+            // Los candidatos crudos, SIN el peso perceptual: sirve para saber si
+            // el tempo correcto está siquiera entre los que se consideran, o si
+            // el problema es que la preferencia lo tapa.
+            if std::env::var("SXT_DETALLE").is_ok() {
+                let mean = nov.iter().sum::<f32>() / nov.len() as f32;
+                let c: Vec<f32> = nov.iter().map(|v| v - mean).collect();
+                let min_lag = (60.0 * fps / MAX_BPM).round().max(1.0) as usize;
+                let max_lag = ((60.0 * fps / MIN_BPM).round() as usize).min(c.len() / 2);
+
+                let mut picos: Vec<(f32, f32, f32)> = (min_lag..=max_lag)
+                    .map(|lag| {
+                        let ov = c.len() - lag;
+                        let r = (0..ov).map(|i| c[i] * c[i + lag]).sum::<f32>() / c.len() as f32;
+                        let bpm = 60.0 * fps / lag as f32;
+                        (r, bpm, r * octave_weight(bpm))
+                    })
+                    .collect();
+                picos.sort_by(|a, b| b.0.total_cmp(&a.0));
+
+                print!("    crudos:");
+                for (r, bpm, w) in picos.iter().take(6) {
+                    print!("  {bpm:.0}({r:.3}→{w:.3})");
+                }
+                println!();
+            }
+        }
+        println!();
+    }
+}

@@ -37,7 +37,12 @@ pub enum LibraryError {
     Analysis,
     #[error("esa canción no está en la biblioteca")]
     NotFound,
-    #[error("yt-dlp no está en el PATH")]
+    /// El mensaje dice **qué instalar y qué hacer después**, no solo qué falta.
+    ///
+    /// Se lo comió un usuario nuevo en su primera vez: "yt-dlp no está en el
+    /// PATH" es correcto y perfectamente inútil para alguien que no sabe qué es
+    /// yt-dlp. Un error que no dice cómo salir del error es medio error.
+    #[error("Falta yt-dlp, que es lo que descarga el audio. Instálalo desde github.com/yt-dlp/yt-dlp/releases —el .exe suelto no necesita Python—, déjalo en una carpeta del PATH y reinicia la app. También hace falta un runtime de JavaScript: Deno, Node o Bun.")]
     YtDlpMissing,
     #[error("error de disco: {0}")]
     Io(#[from] std::io::Error),
@@ -176,6 +181,22 @@ mod tests {
             bpm: None,
             bpm_override: None,
         }
+    }
+
+    #[test]
+    fn el_error_de_yt_dlp_dice_como_salir_del_error() {
+        // Se lo comió un usuario nuevo en su primera vez. "yt-dlp no está en el
+        // PATH" es correcto y perfectamente inútil para alguien que no sabe qué
+        // es yt-dlp: tiene que decir qué instalar y qué hacer después.
+        let mensaje = LibraryError::YtDlpMissing.to_string();
+
+        assert!(mensaje.contains("yt-dlp/yt-dlp"), "sin dónde conseguirlo: {mensaje}");
+        assert!(mensaje.contains("PATH"), "sin dónde ponerlo: {mensaje}");
+        assert!(mensaje.contains("reinicia"), "sin qué hacer después: {mensaje}");
+        // El runtime de JS es la otra mitad del problema y sin él da 403.
+        assert!(mensaje.contains("Deno"), "sin el runtime de JS: {mensaje}");
+        // Un mensaje partido a mano se llena de espacios dobles.
+        assert!(!mensaje.contains("  "), "espacios de más: {mensaje}");
     }
 
     #[test]
