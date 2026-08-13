@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
-import { measureDurationMs } from '../game/constants'
+import { BPM_LIMITS, measureDurationMs } from '../game/constants'
+import { Modal } from './Modal'
 import { SongPicker } from './SongPicker'
 import {
   deleteSong,
@@ -20,6 +21,9 @@ export function SongLibrary({ selected, onSelect }: Props) {
   const [songs, setSongs] = useState<SongStatus[]>([])
   const [url, setUrl] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
+  // Qué canción se está por borrar. Borrar toca el disco y no tiene deshacer,
+  // así que un click de más no puede alcanzar.
+  const [confirming, setConfirming] = useState<SongStatus | null>(null)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -62,6 +66,7 @@ export function SongLibrary({ selected, onSelect }: Props) {
   }
 
   async function remove(id: string) {
+    setConfirming(null)
     try {
       await deleteSong(id)
       if (selected?.id === id) onSelect(null)
@@ -136,7 +141,7 @@ export function SongLibrary({ selected, onSelect }: Props) {
               </button>
             )}
             <button
-              onClick={() => void remove(selected.id)}
+              onClick={() => setConfirming(selected)}
               aria-label={`Eliminar ${selected.title}`}
               className="shrink-0 cursor-pointer rounded-lg border-2 border-line px-3 py-2.5 text-[13px] text-ink-muted hover:border-red hover:text-red"
             >
@@ -147,13 +152,47 @@ export function SongLibrary({ selected, onSelect }: Props) {
       </div>
 
       {selected !== null && editing === selected.id && selected.bpm !== null && (
-        <BpmEditor song={selected} onSave={(value) => void saveBpm(selected.id, value)} />
+        <BpmEditor
+          // La `key` incluye el tempo guardado a propósito: al volver al
+          // detectado, el componente se remonta y el campo vuelve a leer el
+          // valor real. Sin esto el estado interno del input quedaba con el
+          // número viejo aunque la canción ya tuviera otro.
+          key={`${selected.id}-${selected.bpmOverride ?? 'detectado'}`}
+          song={selected}
+          onSave={(value) => void saveBpm(selected.id, value)}
+        />
       )}
 
       <p className="text-[12px] text-ink-muted">
         El tempo es la velocidad. Canciones de{' '}
         <b className="text-ink-soft">1 a 10 minutos</b>.
       </p>
+
+      <Modal
+        open={confirming !== null}
+        title="BORRAR CANCIÓN"
+        onClose={() => setConfirming(null)}
+      >
+        <p className="max-w-[380px] text-[13px] text-ink-soft">
+          Se borra <b className="text-ink">{confirming?.title}</b> del disco: el audio y su
+          análisis. Volver a tenerla es procesar la URL de nuevo.
+        </p>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            onClick={() => setConfirming(null)}
+            className="cursor-pointer rounded-lg border-2 border-line px-4 py-2 text-sm font-bold text-ink-soft hover:border-ink-muted"
+          >
+            CANCELAR
+          </button>
+          <button
+            onClick={() => confirming !== null && void remove(confirming.id)}
+            className="cursor-pointer rounded-lg bg-red/20 px-4 py-2 text-sm font-bold text-red hover:bg-red/30"
+          >
+            BORRAR
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -172,11 +211,17 @@ function BpmEditor({
   onSave: (bpm: number | null) => void
 }) {
   const detected = song.bpm ?? 120
-  const [min, max] = song.bpmRange ?? [40, 240]
+  const [min, max] = song.bpmRange ?? [BPM_LIMITS.min, BPM_LIMITS.max]
   const [value, setValue] = useState(String(Math.round(song.bpmOverride ?? detected)))
 
   const parsed = Number(value)
-  const valid = Number.isFinite(parsed) && parsed >= min && parsed <= max
+  // Se mide contra los límites **duros**, no contra el sugerido. El sugerido
+  // cubre el error de octava, que es el fallo típico, pero no es la única razón
+  // para tocar el tempo: se puede querer jugar una balada al doble. Sugerir no
+  // es prohibir.
+  const valid =
+    Number.isFinite(parsed) && parsed >= BPM_LIMITS.min && parsed <= BPM_LIMITS.max
+  const fueraDelSugerido = valid && (parsed < min || parsed > max)
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg bg-night/60 px-3 py-2 text-[12px]">
@@ -188,8 +233,8 @@ function BpmEditor({
       <input
         type="number"
         value={value}
-        min={Math.round(min)}
-        max={Math.round(max)}
+        min={BPM_LIMITS.min}
+        max={BPM_LIMITS.max}
         onChange={(e) => setValue(e.target.value)}
         className="w-20 rounded border-2 border-line bg-sunken px-2 py-1 text-center text-ink outline-none focus:border-cyan"
       />
@@ -216,11 +261,15 @@ function BpmEditor({
           <>
             La barra tarda{' '}
             <b className="text-cyan">{(measureDurationMs(parsed) / 1000).toFixed(2)} s</b> en
-            cruzar un compás. <b className="text-gold">Más BPM, barra más rápida.</b> Es la
-            única perilla de velocidad.
+            cruzar un compás. <b className="text-gold">Más BPM, barra más rápida.</b>
+            {fueraDelSugerido && (
+              <span className="text-gold"> Fuera del rango sugerido, pero se guarda igual.</span>
+            )}
           </>
         ) : (
-          <>Fuera del rango recomendado.</>
+          <>
+            El tempo va de {BPM_LIMITS.min} a {BPM_LIMITS.max}.
+          </>
         )}
       </span>
 

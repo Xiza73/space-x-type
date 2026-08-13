@@ -181,6 +181,20 @@ Reglas:
   mucho más caro que preverlo ahora.
 - Borrar una canción borra la carpeta **y** la entrada del índice.
 
+### Log
+
+La app escribe a `<app_log_dir>/space-x-type.log`, **también en release**. En Windows eso es
+`%LOCALAPPDATA%\com.xiza73.spacextype\logs\`.
+
+No es un lujo: el detalle de los errores —incluido el `stderr` de `yt-dlp`— va al log y **no**
+al usuario, porque puede filtrar rutas del sistema y no le dice nada útil a nadie. Sin log en
+producción ese detalle no va a ningún lado y un fallo queda sin causa averiguable. Pasó: un
+403 de YouTube se veía en la UI como "no se pudo descargar el audio" y la causa real solo
+estaba en el log de desarrollo.
+
+Se acota a 512 KB con una sola rotación. Es para diagnosticar lo último que pasó, no un
+historial.
+
 Sin base de datos. Un índice JSON alcanza para una biblioteca personal de decenas o
 centenares de canciones; se evalúa SQLite solo si el escaneo lineal llega a molestar.
 

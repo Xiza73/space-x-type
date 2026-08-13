@@ -115,6 +115,49 @@
     color: var(--color-ink);
     font-family: var(--font-ui);
   }
+
+  /*
+   * Barras de scroll con la estética de la app.
+   *
+   * La del sistema es gris y ancha, y en un menú oscuro canta. Va en `base` y
+   * no en una clase suelta porque **todo lo que scrollea en esta app es
+   * oscuro**: el desplegable de canciones y el menú cuando la ventana es chica.
+   *
+   * Se declara de las dos formas a propósito: `scrollbar-color` es el estándar
+   * y lo que va a quedar, `::-webkit-scrollbar` es lo que el WebView entiende
+   * hoy y lo único que permite afinar el grosor y el radio.
+   */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border-radius: 999px;
+    /* El borde transparente deja aire a los costados: sin esto la barra toca
+       el borde del panel y se lee como parte del marco. */
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-muted);
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 /* Texto cromado: gradiente vertical recortado al texto, con borde neón magenta
