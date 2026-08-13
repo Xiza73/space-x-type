@@ -1,7 +1,7 @@
 {
   "name": "space-x-type",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tools": "bun scripts/fetch-quickjs.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

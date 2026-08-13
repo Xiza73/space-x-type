@@ -44,6 +44,12 @@ pub enum LibraryError {
     /// yt-dlp. Un error que no dice cómo salir del error es medio error.
     #[error("Falta yt-dlp, que es lo que descarga el audio. Instálalo desde github.com/yt-dlp/yt-dlp/releases —el .exe suelto no necesita Python—, déjalo en una carpeta del PATH y reinicia la app. También hace falta un runtime de JavaScript: Deno, Node o Bun.")]
     YtDlpMissing,
+    #[error("no se pudo descargar yt-dlp. ¿Hay conexión a internet?")]
+    ToolDownload,
+    #[error(
+        "lo que se descargó no coincide con el hash que publica yt-dlp. No se instaló nada."
+    )]
+    ToolChecksum,
     #[error("error de disco: {0}")]
     Io(#[from] std::io::Error),
     #[error(transparent)]

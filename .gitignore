@@ -40,3 +40,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Sidecars: se bajan al construir con `bun run tools`, no se versionan.
+src-tauri/binaries/

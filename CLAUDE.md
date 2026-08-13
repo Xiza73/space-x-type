@@ -70,19 +70,24 @@ reasignación de teclas, móvil.
 | Lint | **oxlint** | Viene con el template de Vite. Sin ESLint |
 | Bundler | **Vite** | Estándar de Tauri v2 |
 
-**Requisitos externos:** `yt-dlp` en el `PATH`, **y un runtime de JavaScript**
-(`deno`, `node`, `bun` o `quickjs`) también en el `PATH`.
+**Herramientas externas.** La app las resuelve sola; el usuario no instala nada.
 
-El runtime no es opcional: YouTube exige resolver un desafío en JavaScript para firmar la
-URL del stream, y sin él la descarga falla con **403 Forbidden** sin decir por qué. yt-dlp
-habilita solo `deno` por defecto, así que el proyecto le pasa los cuatro con
-`--js-runtimes` y usa el que encuentre.
+| herramienta | cómo llega | por qué así |
+|---|---|---|
+| **QuickJS** | empaquetado con la app (sidecar) | Es un motor de JS: no habla con YouTube, **no caduca**, y pesa 1–2 MB. Sin él YouTube devuelve 403 sin explicar por qué |
+| **yt-dlp** | se descarga la primera vez que hace falta | Empaquetarlo costaba 17–38 MB y **caduca en semanas**: YouTube rota las firmas y vuelve el 403, esta vez sin arreglo hasta sacar otra versión |
 
-> ⚠️ **Pendiente para el instalador.** Hoy las dos dependencias se asumen presentes porque
-> el uso es personal. El instalador del MVP tiene que resolverlas —detectarlas, ofrecer
-> instalarlas, o empaquetarlas— porque un usuario que abre la app y recibe un 403 no tiene
-> forma de saber que le falta Deno. `yt-dlp` además pide Python 3.11 o superior a partir de
-> 2026.
+Lo descargado se verifica contra el `SHA2-256SUMS` que publica el propio proyecto, y se
+instala en el directorio de datos —no al lado del ejecutable, que en Windows queda bajo
+`Program Files` y necesitaría permisos de administrador para actualizarse.
+
+Si el usuario ya tenía yt-dlp en el `PATH`, se usa el de la app igual: es más nuevo y lo
+podemos actualizar.
+
+> **Para desarrollar**, el sidecar hay que bajarlo una vez: `bun run tools`. Sin eso
+> `tauri dev` y `tauri build` fallan, que es lo correcto — mejor que no compile a que salga
+> un instalador sin el runtime adentro.
+
 
 ## Comandos clave
 

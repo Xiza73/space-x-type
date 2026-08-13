@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "SPACE x TYPE",
   "mainBinaryName": "space-x-type",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "identifier": "com.xiza73.spacextype",
   "build": {
     "frontendDist": "../dist",
@@ -31,6 +31,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": ["binaries/qjs"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

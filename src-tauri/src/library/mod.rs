@@ -7,6 +7,7 @@
 pub mod analysis;
 pub mod source;
 pub mod store;
+pub mod tooling;
 mod ytdlp;
 
 use std::path::Path;
@@ -70,10 +71,15 @@ pub fn process(data_dir: &Path, raw_url: &str) -> Result<Processed, LibraryError
         }
     }
 
-    // 3. La duración se valida **antes** de bajar el archivo. Descargar dos
+    // 3. Las herramientas externas, antes de tocar la red por la canción: si
+    //    falta yt-dlp se descarga una sola vez, y si falta el runtime de
+    //    JavaScript YouTube devolvería un 403 que no explica nada.
+    let herramientas = ytdlp::Tools::resolve(data_dir)?;
+
+    // 4. La duración se valida **antes** de bajar el archivo. Descargar dos
     //    horas de audio para después decir "es muy largo" es exactamente lo que
     //    no hay que hacer, y cuesta solo una llamada corta averiguarlo.
-    let seconds = ytdlp::probe_duration(raw_url)?;
+    let seconds = ytdlp::probe_duration(&herramientas, raw_url)?;
     if seconds < ytdlp::MIN_DURATION_SEC {
         return Err(LibraryError::TooShort { seconds, min: ytdlp::MIN_DURATION_SEC });
     }
@@ -81,14 +87,14 @@ pub fn process(data_dir: &Path, raw_url: &str) -> Result<Processed, LibraryError
         return Err(LibraryError::TooLong { seconds, max: ytdlp::MAX_DURATION_SEC });
     }
 
-    // 4. La carpeta se arma con el id ya validado, y se verifica igual.
+    // 5. La carpeta se arma con el id ya validado, y se verifica igual.
     let dir = store::song_dir(data_dir, &id);
     std::fs::create_dir_all(&dir)?;
     store::ensure_inside(data_dir, &dir)?;
 
-    let downloaded = ytdlp::download(raw_url, &dir, store::audio_stem())?;
+    let downloaded = ytdlp::download(&herramientas, raw_url, &dir, store::audio_stem())?;
 
-    // 5. Analizar es parte de procesar: si la canción queda sin beatmap, no se
+    // 6. Analizar es parte de procesar: si la canción queda sin beatmap, no se
     //    puede jugar, y "está en la biblioteca pero no sirve" es peor que un
     //    error claro aquí.
     let beatmap = analysis::analyze(&dir.join(&downloaded.file_name))?;
