@@ -78,14 +78,36 @@ jobs:
 
       # La acción corre `beforeBuildCommand` (o sea `bun run build`) y después
       # empaqueta. La versión sale de `tauri.conf.json`.
+      #
+      # **`tagName` va vacío cuando no hay tag.** Sin eso, un disparo manual
+      # crearía un release con el nombre de la rama, que es basura en la lista
+      # de releases. Con el campo vacío la acción compila y empaqueta pero no
+      # publica nada, que es justo lo que hace falta para probar la matriz.
       - uses: tauri-apps/tauri-action@v1
+        id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: SPACE x TYPE ${{ github.ref_name }}
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('SPACE x TYPE {0}', github.ref_name) || '' }}
           # En borrador a propósito: hay que mirar los artefactos antes de
           # publicarlos, sobre todo mientras no haya firma de código.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      # En un disparo manual no hay release donde dejarlos, así que se suben
+      # como artefactos de la corrida y se pueden bajar para revisarlos.
+      #
+      # Van los dos patrones de ruta porque no son iguales: con `--target` —los
+      # dos macOS— el bundle queda bajo `target/<triple>/release`, y sin él bajo
+      # `target/release`.
+      - name: Guardar los paquetes
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.nombre }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/**/*
+            src-tauri/target/*/release/bundle/**/*
