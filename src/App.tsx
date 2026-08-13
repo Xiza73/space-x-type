@@ -8,11 +8,12 @@ import { Toggle } from './components/Toggle'
 import { DEFAULTS, SPEED_PRESETS } from './game/constants'
 import type { Language, SequenceType } from './game/sequence'
 import type { SongStatus } from './library/client'
+import { isPlainKey } from './window'
 
 const SEQUENCE_OPTIONS = [
-  { value: 'arrows', label: '← FLECHAS' },
-  { value: 'words', label: 'ABC PALABRAS' },
-] as const satisfies readonly { value: SequenceType; label: string }[]
+  { value: 'arrows', label: 'FLECHAS', prefix: '←' },
+  { value: 'words', label: 'PALABRAS', prefix: 'ABC' },
+] as const satisfies readonly { value: SequenceType; label: string; prefix: string }[]
 
 const LANGUAGE_OPTIONS = [
   { value: 'es', label: 'ESPAÑOL' },
@@ -48,6 +49,8 @@ export function App() {
     if (started) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Enter') return
+      // ALT+ENTER es el atajo de pantalla completa, no "jugar".
+      if (!isPlainKey(event)) return
       // Con el foco en un campo, ENTER es de ese campo. Si no, arrancaría la
       // partida al confirmar la URL de la biblioteca.
       if (event.target instanceof HTMLInputElement) return

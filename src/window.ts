@@ -11,6 +11,18 @@
 
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
+/**
+ * ¿La tecla viene sola, sin modificadores?
+ *
+ * El juego solo escucha teclas limpias. `ALT+ENTER` alterna pantalla completa y
+ * **no** puede además confirmar una ronda ni arrancar la partida desde el menú:
+ * `preventDefault` no alcanza, porque no impide que otros listeners del mismo
+ * evento se ejecuten igual. La comprobación tiene que estar donde se escucha.
+ */
+export function isPlainKey(event: KeyboardEvent): boolean {
+  return !event.altKey && !event.ctrlKey && !event.metaKey
+}
+
 export function bindFullscreenToggle(): () => void {
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'Enter' || !event.altKey) return

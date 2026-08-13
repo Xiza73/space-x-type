@@ -34,7 +34,7 @@ export const BAR_COUNT = 72
  * figura nunca se veía limpia y las barras no se leían como una reacción a algo
  * sino como decoración permanente.
  */
-const BAR_GATE = 0.45
+export const BAR_GATE = 0.45
 
 /** Qué fracción del espacio entre barras ocupa el trazo. */
 const BAR_DUTY = 0.8
