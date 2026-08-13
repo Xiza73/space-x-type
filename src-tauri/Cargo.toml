@@ -1,6 +1,6 @@
 [package]
 name = "space-x-type"
-version = "0.2.1"
+version = "0.3.0"
 description = "Juego de ritmo y mecanografía"
 authors = ["Xiza73"]
 license = "MIT"
