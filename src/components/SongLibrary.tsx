@@ -152,7 +152,15 @@ export function SongLibrary({ selected, onSelect }: Props) {
       </div>
 
       {selected !== null && editing === selected.id && selected.bpm !== null && (
-        <BpmEditor song={selected} onSave={(value) => void saveBpm(selected.id, value)} />
+        <BpmEditor
+          // La `key` incluye el tempo guardado a propósito: al volver al
+          // detectado, el componente se remonta y el campo vuelve a leer el
+          // valor real. Sin esto el estado interno del input quedaba con el
+          // número viejo aunque la canción ya tuviera otro.
+          key={`${selected.id}-${selected.bpmOverride ?? 'detectado'}`}
+          song={selected}
+          onSave={(value) => void saveBpm(selected.id, value)}
+        />
       )}
 
       <p className="text-[12px] text-ink-muted">

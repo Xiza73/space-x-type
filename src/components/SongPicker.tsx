@@ -108,6 +108,11 @@ export function SongPicker({ songs, selected, onSelect }: Props) {
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
+        // `onFocus` no alcanza. Después de elegir, el campo **se queda con el
+        // foco** y el desplegable cerrado: el siguiente click no dispara un
+        // foco nuevo, así que sin esto había que clickear afuera y volver para
+        // poder cambiar de canción.
+        onClick={() => setOpen(true)}
         onKeyDown={onKeyDown}
         spellCheck={false}
         className="w-full cursor-pointer rounded-lg border-2 border-line bg-sunken px-3 py-2.5 text-sm text-ink outline-none focus:border-cyan"
