@@ -77,6 +77,17 @@ objetivo = tres máquinas, o CI con matriz de OS. No hay atajo por aquí.
 Eso ya está resuelto en `.github/workflows/release.yml`: se empuja un tag `v*` y la matriz
 genera los cuatro paquetes. A mano solo se construye el de tu propia máquina.
 
+## Iconos
+
+La fuente es `app-icon.svg` en la raíz. Para regenerar los 17 archivos:
+
+```bash
+bun run tauri icon app-icon.svg
+```
+
+Genera además `android/` e `ios/`, que este proyecto no usa: se borran. El móvil está fuera
+del MVP y esos archivos serían ruido que nadie mantiene.
+
 ## 5. Verificación post-build
 
 - El binario arranca en una máquina limpia (sin toolchain de desarrollo instalado).
