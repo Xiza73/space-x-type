@@ -112,10 +112,59 @@ export function sequenceProvider(
   type: SequenceType,
   language: Language,
 ): (length: number) => Step[] {
-  if (type === 'arrows') return (length) => makeArrowSequence(length)
-  const words = WORDS[language]
-  return (length) => makeWordSequence(words, length)
+  const make =
+    type === 'arrows'
+      ? (length: number) => makeArrowSequence(length)
+      : (length: number) => makeWordSequence(WORDS[language], length)
+
+  return withoutRecentRepeats(make)
 }
+
+/**
+ * Cuántas rondas hacia atrás se recuerda una secuencia para no repetirla.
+ *
+ * Tres: repetir dentro de una tanda corta se lee como que el juego se colgó o
+ * te está regalando la ronda. Más atrás no hace falta —cuando la curva vuelve a
+ * ese largo, el jugador ya no se acuerda— y encima achicaría el repertorio.
+ */
+export const NO_REPEAT_WINDOW = 3
+
+/**
+ * Envuelve un generador para que no devuelva algo que ya salió hace poco.
+ *
+ * Reintenta un número **acotado** de veces y, si no encuentra otra, devuelve la
+ * última que probó. Es deliberado: con 3 teclas hay 64 flechas posibles pero las
+ * palabras de una longitud dada pueden ser pocas, y un bucle que insiste hasta
+ * encontrar una distinta se cuelga el día que el repertorio es más chico que la
+ * ventana. Un juego que se traba es peor que una repetición.
+ */
+function withoutRecentRepeats(
+  make: (length: number) => Step[],
+): (length: number) => Step[] {
+  const recent: string[] = []
+
+  return (length) => {
+    let sequence = make(length)
+    for (let i = 0; i < MAX_RETRIES && recent.includes(key(sequence)); i++) {
+      sequence = make(length)
+    }
+
+    recent.push(key(sequence))
+    if (recent.length > NO_REPEAT_WINDOW) recent.shift()
+    return sequence
+  }
+}
+
+const MAX_RETRIES = 12
+
+/**
+ * Identidad de una secuencia: la concatenación de sus **teclas**.
+ *
+ * `Step` es un objeto, así que un `join('')` a secas da `[object Object]` para
+ * todas y la comparación deja de distinguir nada — silenciosamente, que es lo
+ * peor. Aquí se rompió así la primera vez y el test lo agarró.
+ */
+const key = (sequence: readonly Step[]) => sequence.map((step) => step.key).join('')
 
 /** El clamp cubre un `random` inyectado que devuelva exactamente 1. */
 function pick<T>(items: readonly T[], random: () => number): T {

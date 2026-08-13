@@ -195,7 +195,8 @@ export function SongLibrary({ selected, onSelect }: Props) {
 
       <p className="text-[12px] text-ink-muted">
         Procesar descarga el audio y detecta el tempo. El tempo es la velocidad: la barra
-        cruza un compás de cuatro beats, así que más BPM es barra más rápida.
+        cruza un compás de cuatro beats, así que más BPM es barra más rápida. Se admiten
+        canciones de <b className="text-ink-soft">1 a 10 minutos</b>.
       </p>
     </div>
   )
