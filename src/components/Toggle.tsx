@@ -1,4 +1,14 @@
-type Option<T extends string> = { value: T; label: string }
+type Option<T extends string> = {
+  value: T
+  label: string
+  /**
+   * Adorno delante del texto, más chico y apagado: el `←` de flechas, el `ABC`
+   * de palabras. Va aparte y no pegado al label porque a tamaño completo un
+   * prefijo de tres letras parte el botón en dos líneas, y eso estira el panel
+   * entero y deja a los de al lado con un hueco vacío abajo.
+   */
+  prefix?: string
+}
 
 type Props<T extends string> = {
   label: string
@@ -32,10 +42,13 @@ export function Toggle<T extends string>({ label, value, options, accent, onChan
             type="button"
             aria-pressed={option.value === value}
             onClick={() => onChange(option.value)}
-            className={`flex-1 cursor-pointer rounded-lg border-2 px-3 py-2.5 text-sm font-bold transition-colors duration-150 ${
+            className={`flex flex-1 items-baseline justify-center gap-1.5 whitespace-nowrap rounded-lg border-2 px-3 py-2.5 text-sm font-bold transition-colors duration-150 ${
               option.value === value ? ACCENT[accent] : OFF
-            }`}
+            } cursor-pointer`}
           >
+            {option.prefix !== undefined && (
+              <span className="text-[10px] opacity-60">{option.prefix}</span>
+            )}
             {option.label}
           </button>
         ))}

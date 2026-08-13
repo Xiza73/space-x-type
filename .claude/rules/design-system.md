@@ -148,6 +148,23 @@ no pasa el umbral no se dibuja. Sin eso, el piso de ruido del análisis mantení
 anillo levantado a media asta y las barras se leían como decoración permanente en vez de
 como una reacción a un sonido.
 
+**La ventana de decibeles del analizador es lo que decide cuántas barras se encienden.**
+`getByteFrequencyData` no devuelve amplitud: mapea un rango de dB a 0–255, y el rango por
+defecto (−100 a −30) deja a toda la música arriba. Medido sobre una canción real, el 100% de
+las barras quedaba al máximo, y ninguna curva de contraste puede separar algo que ya viene
+saturado.
+
+Los valores salen de medir el espectro banda por banda de una canción de verdad: va de −78 dB
+en la barra más floja a −34 en la más fuerte, con la mediana en −52. Con la ventana en
+−80/−32 y la curva de contraste en 4, quedan **24 de 72 barras encendidas** —un tercio del
+anillo— con el pico en 1.0 y la mediana en 0.22.
+
+> ⚠️ Tocar `fftSize` corre la escala de dB, porque la energía se reparte entre más bins. Si se
+> cambia uno, hay que volver a medir el otro.
+
+La FFT es de 4096 y no de 1024 por una razón medida: con 1024 las diez barras más graves caían
+todas en el **mismo bin** y leían el mismo valor, o sea que se movían idénticas.
+
 Cada barra lee **su propia banda de frecuencia**, repartidas en escala logarítmica porque el
 oído oye en octavas. Esa es la regla que no se puede romper: un intento anterior agrupaba
 todo en tres bandas gruesas, y dentro de un grupo todas las luces recibían el mismo valor,

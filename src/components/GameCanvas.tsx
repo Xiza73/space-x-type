@@ -11,6 +11,7 @@ import { seedFrom } from '../game/visualizer'
 import { sequenceProvider, type Language, type SequenceType } from '../game/sequence'
 import { songBeatmap, type SongStatus } from '../library/client'
 import { modeKey } from '../scores/client'
+import { isPlainKey } from '../window'
 import { Countdown } from './Countdown'
 import { GameOver } from './GameOver'
 import { Overlays } from './Overlays'
@@ -143,6 +144,9 @@ export function GameCanvas({
       loopRef.current = loop
 
       onKeyDown = (event: KeyboardEvent) => {
+        // Un atajo con modificador no es una jugada: ALT+ENTER alterna pantalla
+        // completa y no puede además confirmar la ronda.
+        if (!isPlainKey(event)) return
         // El espacio scrollea la página y las flechas mueven el foco.
         if (event.key === ' ' || event.key.startsWith('Arrow')) event.preventDefault()
         // En pausa el reloj está congelado: aceptar teclas dejaría al jugador

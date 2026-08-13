@@ -81,8 +81,30 @@ function buildGraph(): void {
   analyser = ctx.createAnalyser()
   // 512 bins sobre el espectro: ~43 Hz por bin a 44.1 kHz. Suficiente para
   // separar bandas, y barato de leer una vez por frame.
-  analyser.fftSize = 1024
+  // 2048 bins: ~10.8 Hz por bin a 44.1 kHz.
+  //
+  // Con 1024 (43 Hz por bin) las diez barras más graves caían todas dentro del
+  // MISMO bin y leían exactamente el mismo valor: se movían idénticas, que es
+  // justo lo contrario de lo que tiene que hacer un espectro. Medido sobre una
+  // canción real, las barras 0 a 9 daban -51.9 dB las diez.
+  analyser.fftSize = 4096
   analyser.smoothingTimeConstant = 0.3
+
+  // **La ventana de decibeles decide cuántas barras se encienden.**
+  //
+  // `getByteFrequencyData` no devuelve amplitud: mapea un rango de dB a 0–255.
+  // El rango por defecto (-100 a -30) deja a toda la música arriba, así que el
+  // 100% de las barras quedaba al máximo y ninguna curva de contraste podía
+  // arreglar algo que ya venía saturado.
+  //
+  // Estos números salen de medir el espectro de una canción real, banda por
+  // banda: va de -78 dB en la barra más floja a -34 en la más fuerte, con la
+  // mediana en -52. La ventana los cubre con un poco de aire a cada lado.
+  //
+  // Ojo al tocar `fftSize`: cambiarlo corre la escala de dB, porque la energía
+  // se reparte entre más bins. Si se toca uno, hay que volver a medir el otro.
+  analyser.minDecibels = -80
+  analyser.maxDecibels = -32
 
   music.connect(analyser).connect(ctx.destination)
   sfx.connect(ctx.destination)

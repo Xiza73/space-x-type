@@ -55,16 +55,38 @@ export function readSpectrum(out: Float32Array): void {
 
     // Pico y no promedio: un promedio sobre una banda ancha se come justamente
     // el ataque, que es lo que se quiere ver.
-    out[i] = Math.min(1, (peak / 255) * tilt(i, bars))
+    const level = Math.min(1, (peak / 255) * tilt(i, bars))
+
+    // La curva separa lo mediano de lo que de verdad sobresale. Va **después**
+    // de la ventana de decibeles, que es la que hace el trabajo grueso: sobre
+    // una señal ya saturada, ninguna potencia separa nada.
+    out[i] = level ** CONTRAST
   }
 }
 
 /**
- * Realce progresivo hacia los agudos. Al doble en la barra más alta.
+ * Exponente de la curva de contraste. Más alto = menos barras encendidas y más
+ * diferencia entre ellas.
+ *
+ * Es el ajuste **fino**: el grueso lo hace la ventana de decibeles del
+ * analizador, y sobre una señal ya saturada ninguna potencia separa nada.
+ *
+ * Con la ventana medida, este exponente deja 24 de 72 barras encendidas —un
+ * tercio del anillo— con el pico en 1.0 y la mediana en 0.22. Ahí está la
+ * diferencia visible entre unas y otras.
+ */
+const CONTRAST = 4
+
+/**
+ * Realce progresivo hacia los agudos.
  *
  * No es un adorno: sin esto el lado derecho del anillo queda plano en cualquier
- * canción, porque la energía musical cae con la frecuencia.
+ * canción, porque la energía musical cae con la frecuencia. Pero tampoco puede
+ * ser mucho: con un realce al doble, los agudos saturaban en 1 y la curva de
+ * contraste ya no tenía nada que separar de ese lado.
  */
+const TILT_TOP = 1.6
+
 function tilt(index: number, bars: number): number {
-  return 1 + index / (bars - 1)
+  return 1 + ((TILT_TOP - 1) * index) / (bars - 1)
 }
