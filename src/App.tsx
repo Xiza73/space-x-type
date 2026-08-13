@@ -26,6 +26,13 @@ const RHYTHM_OPTIONS = [
 
 const SPEED_OPTIONS = SPEED_PRESETS.map((p) => ({ value: p.id, label: p.label }))
 
+const BACKGROUND_OPTIONS = [
+  { value: 'lights', label: 'LUCES' },
+  { value: 'plain', label: 'LISO' },
+] as const satisfies readonly { value: BackgroundId; label: string }[]
+
+type BackgroundId = 'lights' | 'plain'
+
 export function App() {
   const [started, setStarted] = useState(false)
   const [sequenceType, setSequenceType] = useState<SequenceType>('arrows')
@@ -33,6 +40,7 @@ export function App() {
   const [rhythmMode, setRhythmMode] = useState<RhythmMode>(DEFAULTS.rhythmMode)
   const [speed, setSpeed] = useState<SpeedId>(DEFAULTS.speed)
   const [song, setSong] = useState<SongStatus | null>(null)
+  const [background, setBackground] = useState<BackgroundId>('lights')
 
   useEffect(() => {
     if (started) return
@@ -62,6 +70,7 @@ export function App() {
         rhythmMode={rhythmMode}
         speed={speed}
         song={rhythmMode === 'song' ? song : null}
+        reactiveBackground={background === 'lights'}
         onMenu={() => setStarted(false)}
       />
     )
@@ -113,6 +122,18 @@ export function App() {
               onChange={setLanguage}
             />
           )}
+
+          {/*
+            El fondo de luces es lo único que dibuja de más por frame, así que
+            tiene que poder apagarse. El fondo nunca le gana al loop de juego.
+          */}
+          <Toggle
+            label="FONDO"
+            value={background}
+            options={BACKGROUND_OPTIONS}
+            accent="magenta"
+            onChange={setBackground}
+          />
 
           {/*
             La velocidad se elige SIEMPRE en modo canción, también con una

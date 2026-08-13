@@ -123,14 +123,39 @@ sobre todo, con `pointer-events:none`.
 
 **Viñeta** — `radial-gradient` elíptico azulado al 42% de altura.
 
-**Fondo psicodélico** — blobs de color con `filter: blur(34px) contrast(18)` en el contenedor.
-Ese par blur+contrast es lo que produce el efecto *metaball* de lámpara de lava; separados no
-hacen nada. Encima, `hue-rotate` de 40s y dos capas de oscurecimiento.
+**Fondo de luces reactivas** — un campo de blobs que se prenden con lo que suena. Reemplaza
+al fondo psicodélico del prototipo **y** al plan de poner el video de YouTube de fondo.
 
-> ⚠️ **Ese filtro es caro.** Es un `blur` + `contrast` a pantalla completa animándose bajo un
-> juego que tiene que sostener 60fps. **Hay que medirlo con el gameplay corriendo**, no
-> solo. Si come frames: pasa a canvas/WebGL, o queda como opción con aviso. El fondo nunca
-> le gana al loop de juego.
+Se alimenta de un `AnalyserNode` colgado de la salida maestra, en tres bandas —graves,
+medios, agudos—. Tres y no treinta: el fondo comunica *sonó algo, y de qué tipo*, no dibuja
+un ecualizador. Cada luz tiene **ataque instantáneo y caída lenta**, así marca el golpe y se
+apaga sola; con caída rápida el fondo tiembla y marea, con caída lenta es una mancha fija.
+
+Las posiciones se sortean **una vez por partida** y no por frame: el pedido era que las luces
+se prendan en lugares aleatorios, no que se muevan. El sorteo va con semilla, no con
+`Math.random`, para que un test pueda fijarlo.
+
+Cada luz es un sprite de gradiente radial pre-renderizado una sola vez y dibujado con
+`globalCompositeOperation = 'lighter'`. **Nada de filtros CSS.** Armar el gradiente por luz y
+por frame es exactamente lo que vuelve lento a este efecto.
+
+> ✅ **Medido con el gameplay corriendo**, que es lo que esta regla venía pidiendo desde el
+> principio. A 1280×720 con 14 luces: el render completo pasa de **0.152 ms a 0.245 ms** por
+> frame. El fondo cuesta **0.093 ms**, o sea el 0.6% del presupuesto de 16.67 ms a 60fps.
+>
+> El contraste del riel **no se mueve**: 105 puntos de luminancia entre el centro de la zona
+> y el borde, idéntico con el fondo apagado, en silencio, a medio volumen y a full. El riel
+> se dibuja con rellenos opacos encima, así que el fondo queda tapado debajo. El fondo
+> respira entre 16.8 y 39.4 de luminancia media según lo que suene.
+>
+> Aun así **es apagable** desde el menú (`FONDO: LUCES / LISO`). Es lo único que dibuja de
+> más por frame. El fondo nunca le gana al loop de juego.
+
+El fondo psicodélico original usaba `filter: blur(34px) contrast(18)` sobre el contenedor
+—ese par es lo que produce el efecto *metaball* de lámpara de lava; separados no hacen nada—
+más un `hue-rotate` de 40s. Queda documentado porque es lindo, pero **no se construyó**: era
+un blur a pantalla completa animándose bajo un juego de 60fps, y las luces dan un efecto
+comparable por dos órdenes de magnitud menos.
 
 ## Geometría y movimiento
 

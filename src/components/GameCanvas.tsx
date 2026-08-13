@@ -24,6 +24,8 @@ type Props = {
   speed: SpeedId
   /** Canción de la biblioteca, o `null` para el chiptune simulado. */
   song: SongStatus | null
+  /** Fondo de luces que reaccionan a lo que suena. */
+  reactiveBackground: boolean
   onMenu: () => void
 }
 
@@ -36,6 +38,7 @@ export function GameCanvas({
   rhythmMode,
   speed,
   song,
+  reactiveBackground,
   onMenu,
 }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -126,6 +129,7 @@ export function GameCanvas({
         rhythm,
         nextSequence: sequenceProvider(sequenceType, language),
         track,
+        reactiveBackground,
         onGameOver: setOver,
       })
       loopRef.current = loop
@@ -163,7 +167,7 @@ export function GameCanvas({
       pausedRef.current = false
       void resumeAudio()
     }
-  }, [sequenceType, language, rhythmMode, speed, song, run])
+  }, [sequenceType, language, rhythmMode, speed, song, reactiveBackground, run])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

@@ -1,5 +1,7 @@
+import { readBands } from '../audio/bands'
 import { startChiptune, stopChiptune } from '../audio/chiptune'
 import { nowMs } from '../audio/context'
+import { createLightField } from './background'
 import { CONFIRM_KEYS, ROUND_START_TOLERANCE_MS } from './constants'
 import { sfxBad, sfxGood, sfxGreat, sfxKey, sfxMiss, sfxPerfect, sfxWrong } from '../audio/sfx'
 import {
@@ -42,6 +44,12 @@ export type LoopOptions = {
   /** Qué suena, para mostrarlo en pantalla. `null` con el chiptune. */
   track: TrackInfo | null
   /**
+   * Fondo de luces que reaccionan al audio. Opcional a propósito: es lo único
+   * que dibuja de más por frame, así que tiene que poder apagarse en una
+   * máquina que no llegue a 60fps.
+   */
+  reactiveBackground: boolean
+  /**
    * Se llama una sola vez, al terminar la partida. La pantalla de resultados
    * vive en React porque necesita un input de texto, y un input no va en canvas.
    */
@@ -62,6 +70,7 @@ export function startGameLoop({
   rhythm,
   nextSequence,
   track,
+  reactiveBackground,
   onGameOver,
 }: LoopOptions): Loop {
   const fullConfig: GameConfig = { ...config, interRoundPauseMs: rhythm.interRoundPauseMs }
@@ -75,6 +84,8 @@ export function startGameLoop({
   // La primera ronda también entra en anticipo: al terminar la cuenta el
   // jugador ve lo que viene antes de tener que tocar nada.
   let wantsPreview = true
+  let lastFrameMs: number | null = null
+  const background = reactiveBackground ? createLightField() : null
 
   // Con una canción de verdad sonando, el chiptune sobra.
   if (bpm !== null) startChiptune(bpm)
@@ -122,7 +133,15 @@ export function startGameLoop({
       }
     }
 
-    draw(canvas, state, now, track)
+    if (background !== null) {
+      // El delta sale del reloj de audio, igual que todo lo demás. En el primer
+      // frame no hay anterior, así que se asume uno de 60fps.
+      const dtMs = lastFrameMs === null ? 16.7 : now - lastFrameMs
+      background.update(readBands(), dtMs)
+    }
+    lastFrameMs = now
+
+    draw(canvas, state, now, track, background)
     raf = requestAnimationFrame(frame)
   }
 

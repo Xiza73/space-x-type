@@ -1,4 +1,5 @@
 import { COLORS, FONTS } from '../theme/tokens'
+import type { LightField } from './background'
 import { SONG, TIMING } from './constants'
 import {
   multiplierFor,
@@ -73,6 +74,7 @@ export function draw(
   state: GameState,
   nowMs: number,
   track: TrackInfo | null = null,
+  background: LightField | null = null,
 ): void {
   const ctx = prepare(canvas)
   if (ctx === null) return
@@ -82,6 +84,10 @@ export function draw(
 
   ctx.fillStyle = COLORS.night
   ctx.fillRect(0, 0, w, h)
+
+  // El fondo va primero y debajo de TODO. Si se dibujara después, las luces
+  // taparían el riel, que es lo único que el jugador no puede dejar de ver.
+  background?.draw(ctx, w, h)
 
   // Terminada la partida el canvas queda vacío: la pantalla de resultados es
   // React, porque necesita un input de texto para el nombre.
