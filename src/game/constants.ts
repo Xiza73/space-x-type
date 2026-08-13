@@ -78,39 +78,51 @@ export const SONG = {
 } as const
 
 /**
- * Velocidades elegibles para el modo canción.
+ * La barra cruza **un compás de 4/4**. Cuatro beats, siempre.
  *
- * Van los dos valores porque las dos fuentes de ritmo miden distinto y no se
- * pueden mezclar:
+ * Es lo que hace el original: el metrónomo va al BPM de la canción, se tipea
+ * dentro del compás y se confirma en el cuarto beat. Por eso en modo canción
+ * **el BPM es la única perilla de velocidad**: más BPM, barra más rápida y
+ * partida más difícil. No hay una segunda variable, y no la puede haber sin
+ * volver a romper la relación.
  *
- * - La canción **simulada** corre libre, así que se le da la duración en ms.
- * - La canción **real** tiene que caer en un número entero de beats o la barra
- *   se sale de la grilla, que es lo único que hace que un juego de ritmo sea un
- *   juego de ritmo. Por eso se elige en beats y la duración sale del tempo.
- *
- * Que la velocidad se elija en beats es lo que vuelve **predecible** al tempo:
- * con los beats fijos, `duración = beats · 60000 / bpm` es estrictamente
- * decreciente en el BPM. Más tempo, barra más rápida, siempre. Antes la
- * duración se elegía sola buscando un objetivo fijo y la relación tenía dos
- * saltos donde subir el tempo hacía la barra casi el doble de lenta.
+ * > Aquí hubo dos modelos equivocados antes de este. El primero elegía los
+ * > beats por ronda buscando una duración objetivo, así que **cancelaba** el
+ * > tempo: a 150 BPM la ronda duraba 1600ms y a 155 saltaba a 3096ms. El
+ * > segundo dejó los beats como una perilla aparte, que arreglaba la monotonía
+ * > pero seguía teniendo dos variables para una sola cosa. El "4beat / 8beat"
+ * > del original, que fue de donde saqué esa idea, **no es la velocidad**: son
+ * > las direcciones, 4 teclas contra 8. Ese eje ya lo teníamos, y es `SONG`.
  */
-export const SPEED_PRESETS = [
-  { id: 'calma', label: 'CALMA', roundDurationMs: 3400, beatsPerRound: 8 },
-  { id: 'normal', label: 'NORMAL', roundDurationMs: 2600, beatsPerRound: 6 },
-  { id: 'rapido', label: 'RÁPIDO', roundDurationMs: 1900, beatsPerRound: 4 },
-  { id: 'extremo', label: 'EXTREMO', roundDurationMs: 1400, beatsPerRound: 2 },
-] as const
+export const MEASURE_BEATS = 4
 
 /**
- * Duración de ronda de una canción real, dado el tempo y la velocidad elegida.
+ * Cuánto tarda la barra en cruzar, dado el tempo.
  *
- * Vive aquí y no en el ritmo porque la pantalla de la biblioteca la muestra
- * antes de jugar: el jugador tiene que poder ver a qué velocidad va a quedar la
- * canción **mientras** corrige el tempo, no descubrirlo jugando.
+ * Vive aquí y no en el ritmo porque la biblioteca la muestra antes de jugar: el
+ * jugador tiene que ver a qué velocidad le queda la canción **mientras** ajusta
+ * el tempo, no descubrirlo jugando.
  */
-export function beatRoundDurationMs(bpm: number, beatsPerRound: number): number {
-  return Math.round((beatsPerRound * 60_000) / bpm)
+export function measureDurationMs(bpm: number): number {
+  return Math.round((MEASURE_BEATS * 60_000) / bpm)
 }
+
+/**
+ * Tempos elegibles para la canción **simulada**, la del chiptune.
+ *
+ * El label es el número a propósito: la perilla es el BPM y nada más, así que
+ * tiene que decir BPM. Un `CALMA / NORMAL / RÁPIDO` escondía justamente la
+ * variable que el jugador necesita entender.
+ *
+ * Con una canción de la biblioteca este control no aparece: ahí el tempo sale
+ * de la canción y se ajusta en la biblioteca.
+ */
+export const SPEED_PRESETS = [
+  { id: 'calma', label: '90', bpm: 90 },
+  { id: 'normal', label: '120', bpm: 120 },
+  { id: 'rapido', label: '150', bpm: 150 },
+  { id: 'extremo', label: '180', bpm: 180 },
+] as const
 
 export const ROUND = {
   arrowCount: 5,

@@ -1,5 +1,5 @@
 import { COLORS, FONTS } from '../theme/tokens'
-import type { LightField } from './background'
+import type { Visualizer } from './visualizer'
 import { SONG, TIMING } from './constants'
 import {
   multiplierFor,
@@ -74,7 +74,7 @@ export function draw(
   state: GameState,
   nowMs: number,
   track: TrackInfo | null = null,
-  background: LightField | null = null,
+  background: Visualizer | null = null,
 ): void {
   const ctx = prepare(canvas)
   if (ctx === null) return

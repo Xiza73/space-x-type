@@ -143,19 +143,37 @@ mueve. Una sola palanca de dificultad por modo: aquí es la velocidad.
 
 ## Modo Canción
 
-**El tempo lo pone la canción.** Por eso la barra no puede acelerar: si acelera, se va del
-beat y se pierde lo único que hace que un juego de ritmo sea un juego de ritmo.
+**El tempo lo pone la canción, y el tempo ES la velocidad.**
 
-Consecuencia directa: **el modelo de dificultad de arcade no se traslada aquí.** La velocidad
-es fija y la única palanca es **cuántas teclas** tiene la secuencia.
+La barra cruza **un compás de 4/4**: cuatro beats, siempre. Es lo que hace el original, donde
+el metrónomo va al BPM de la canción, se tipea dentro del compás y se confirma en el cuarto
+beat. De ahí sale la regla entera:
 
 ```
-teclas       min + (floor(rondas / roundsPerKeyStep) mod (max - min + 1))
-             piso 3 · techo 8 · sube cada 3 rondas jugadas
-partida      dura un tiempo fijo
-vidas        NINGUNA — `config.lives = null`
-velocidad    fija; en la simulada la elige el jugador, en la real la pone el beatmap
+duración de ronda   4 · 60000 / bpm        [ms]      ← una sola variable
+teclas              min + (floor(rondas / roundsPerKeyStep) mod (max - min + 1))
+                    piso 3 · techo 8 · sube cada 3 rondas jugadas
+partida             dura lo que dure la canción
+vidas               NINGUNA — `config.lives = null`
 ```
+
+**Más BPM, barra más rápida. Siempre.** La relación es estrictamente decreciente y no puede
+tener excepciones, porque no hay una segunda variable que la desvíe.
+
+> ⚠️ **No agregues una segunda perilla de velocidad.** Ya se intentó dos veces y las dos
+> salieron mal. El primer modelo elegía los beats por ronda buscando una duración objetivo,
+> así que **cancelaba** el tempo: a 150 BPM la ronda duraba 1600ms y a 155 saltaba a 3096ms.
+> El segundo dejó los beats como una perilla aparte: arreglaba la monotonía pero seguía
+> teniendo dos variables para una sola cosa, y el jugador no sabía cuál mover.
+>
+> El "4beat / 8beat" del original —de donde salió esa idea— **no es velocidad: son
+> direcciones**, 4 teclas contra 8. Ese eje ya existe aquí y es la cantidad de teclas.
+>
+> Hay tests de los dos lados que recorren los 200 tempos de a uno y fallan si la relación se
+> vuelve a dar vuelta.
+
+En la canción **simulada** el jugador elige el BPM, y ese mismo BPM mueve el chiptune y la
+barra: van juntos. En la **real** el BPM sale del análisis y se ajusta en la biblioteca.
 
 **En canción no hay vidas.** No es un descuido: cortar la partida a la mitad por fallar es
 sacar al jugador de la canción, que es exactamente lo contrario de lo que hace el género.

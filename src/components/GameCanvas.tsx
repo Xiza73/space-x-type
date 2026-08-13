@@ -7,6 +7,7 @@ import type { GameState } from '../game/engine'
 import { startGameLoop, type Loop } from '../game/loop'
 import type { TrackInfo } from '../game/render'
 import { arcadeRhythm, beatmapRhythm, songRhythm, type RhythmSource } from '../game/rhythm'
+import { seedFrom } from '../game/visualizer'
 import { sequenceProvider, type Language, type SequenceType } from '../game/sequence'
 import { songBeatmap, type SongStatus } from '../library/client'
 import { modeKey } from '../scores/client'
@@ -24,7 +25,7 @@ type Props = {
   speed: SpeedId
   /** Canción de la biblioteca, o `null` para el chiptune simulado. */
   song: SongStatus | null
-  /** Fondo de luces que reaccionan a lo que suena. */
+  /** Visualizador circular que reacciona a lo que suena. */
   reactiveBackground: boolean
   onMenu: () => void
 }
@@ -97,9 +98,8 @@ export function GameCanvas({
           const beatmap = await songBeatmap(song.id)
           if (cancelled) return
           playback = playSong(buffer)
-          // El tempo lo pone el beatmap; la velocidad, el jugador. Son ejes
-          // distintos y por eso entran por separado.
-          rhythm = beatmapRhythm(beatmap, playback.startedAtMs, preset.beatsPerRound)
+          // El tempo de la canción es la velocidad de la barra. Una variable.
+          rhythm = beatmapRhythm(beatmap, playback.startedAtMs)
           bpm = null
           track = {
             title: song.title,
@@ -111,7 +111,11 @@ export function GameCanvas({
           return
         }
       } else if (rhythmMode === 'song') {
-        rhythm = songRhythm(preset.roundDurationMs)
+        // El mismo BPM mueve el chiptune y la barra, así que en canción simulada
+        // los dos van juntos. En arcade no: allí la barra acelera con el nivel y
+        // la música corre a tempo fijo, y eso es deliberado.
+        bpm = preset.bpm
+        rhythm = songRhythm(preset.bpm)
       } else {
         rhythm = arcadeRhythm(DEFAULTS.speedScale)
       }
@@ -129,7 +133,11 @@ export function GameCanvas({
         rhythm,
         nextSequence: sequenceProvider(sequenceType, language),
         track,
-        reactiveBackground,
+        // La figura sale del id de la canción, así que cada canción tiene la
+        // suya y siempre la misma. Sin canción, del tempo del chiptune.
+        visualSeed: reactiveBackground
+          ? seedFrom(song?.id ?? `chiptune-${preset.bpm}`)
+          : null,
         onGameOver: setOver,
       })
       loopRef.current = loop

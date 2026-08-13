@@ -19,19 +19,21 @@ const LANGUAGE_OPTIONS = [
   { value: 'en', label: 'ENGLISH' },
 ] as const satisfies readonly { value: Language; label: string }[]
 
+// El default va primero. Que CANCIÓN sea el modo por defecto y apareciera
+// segunda era una contradicción visible.
 const RHYTHM_OPTIONS = [
-  { value: 'arcade', label: 'ARCADE' },
   { value: 'song', label: 'CANCIÓN' },
+  { value: 'arcade', label: 'ARCADE' },
 ] as const satisfies readonly { value: RhythmMode; label: string }[]
 
 const SPEED_OPTIONS = SPEED_PRESETS.map((p) => ({ value: p.id, label: p.label }))
 
 const BACKGROUND_OPTIONS = [
-  { value: 'lights', label: 'LUCES' },
+  { value: 'visual', label: 'VISUAL' },
   { value: 'plain', label: 'LISO' },
 ] as const satisfies readonly { value: BackgroundId; label: string }[]
 
-type BackgroundId = 'lights' | 'plain'
+type BackgroundId = 'visual' | 'plain'
 
 export function App() {
   const [started, setStarted] = useState(false)
@@ -40,7 +42,7 @@ export function App() {
   const [rhythmMode, setRhythmMode] = useState<RhythmMode>(DEFAULTS.rhythmMode)
   const [speed, setSpeed] = useState<SpeedId>(DEFAULTS.speed)
   const [song, setSong] = useState<SongStatus | null>(null)
-  const [background, setBackground] = useState<BackgroundId>('lights')
+  const [background, setBackground] = useState<BackgroundId>('visual')
 
   useEffect(() => {
     if (started) return
@@ -70,7 +72,7 @@ export function App() {
         rhythmMode={rhythmMode}
         speed={speed}
         song={rhythmMode === 'song' ? song : null}
-        reactiveBackground={background === 'lights'}
+        reactiveBackground={background === 'visual'}
         onMenu={() => setStarted(false)}
       />
     )
@@ -93,7 +95,7 @@ export function App() {
           dorada.{' '}
           {rhythmMode === 'arcade'
             ? 'La barra se acelera con cada nivel y juegas hasta quedarte sin vidas.'
-            : 'La velocidad no cambia: lo que sube es la cantidad de teclas, y la partida dura dos minutos.'}
+            : 'La barra va al tempo de la canción: más BPM, más rápida. Sin vidas — se juega hasta que la canción termina.'}
         </p>
 
         <div className="flex flex-wrap justify-center gap-4">
@@ -124,7 +126,7 @@ export function App() {
           )}
 
           {/*
-            El fondo de luces es lo único que dibuja de más por frame, así que
+            El visualizador es lo único que dibuja de más por frame, así que
             tiene que poder apagarse. El fondo nunca le gana al loop de juego.
           */}
           <Toggle
@@ -136,14 +138,13 @@ export function App() {
           />
 
           {/*
-            La velocidad se elige SIEMPRE en modo canción, también con una
-            canción de la biblioteca. El beatmap pone el tempo —dónde caen los
-            beats—, no la velocidad: con una canción elegida, esto define
-            cuántos beats dura cada ronda.
+            Con una canción de la biblioteca este control NO aparece: ahí el
+            tempo sale de la canción y se ajusta en la biblioteca. Dos lugares
+            para la misma variable serían dos lugares para desincronizarse.
           */}
-          {rhythmMode === 'song' && (
+          {rhythmMode === 'song' && song === null && (
             <Toggle
-              label="VELOCIDAD"
+              label="BPM"
               value={speed}
               options={SPEED_OPTIONS}
               accent="cyan"
@@ -156,9 +157,6 @@ export function App() {
           <SongLibrary
             selected={song}
             onSelect={setSong}
-            beatsPerRound={
-              (SPEED_PRESETS.find((p) => p.id === speed) ?? SPEED_PRESETS[1]).beatsPerRound
-            }
           />
         )}
 

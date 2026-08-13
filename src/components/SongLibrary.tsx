@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { beatRoundDurationMs } from '../game/constants'
+import { measureDurationMs } from '../game/constants'
 import {
   deleteSong,
   effectiveBpm,
@@ -15,16 +15,9 @@ type Props = {
   /** Canción elegida, o `null` para el chiptune simulado. */
   selected: SongStatus | null
   onSelect: (song: SongStatus | null) => void
-  /**
-   * Velocidad elegida en el menú. Entra solo para poder mostrar en cuánto
-   * queda la ronda al corregir el tempo: sin eso el editor da un número sin
-   * consecuencia visible, que es de dónde salió la confusión original entre
-   * tempo y velocidad.
-   */
-  beatsPerRound: number
 }
 
-export function SongLibrary({ selected, onSelect, beatsPerRound }: Props) {
+export function SongLibrary({ selected, onSelect }: Props) {
   const [songs, setSongs] = useState<SongStatus[]>([])
   const [url, setUrl] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
@@ -130,7 +123,7 @@ export function SongLibrary({ selected, onSelect, beatsPerRound }: Props) {
             }`}
           >
             Chiptune simulado
-            <span className="ml-2 text-[12px] text-ink-muted">velocidad a elección</span>
+            <span className="ml-2 text-[12px] text-ink-muted">tempo a elección</span>
           </button>
         </li>
 
@@ -187,11 +180,7 @@ export function SongLibrary({ selected, onSelect, beatsPerRound }: Props) {
               </div>
 
               {editing === song.id && song.bpm !== null && (
-                <BpmEditor
-                  song={song}
-                  beatsPerRound={beatsPerRound}
-                  onSave={(value) => void saveBpm(song.id, value)}
-                />
+                <BpmEditor song={song} onSave={(value) => void saveBpm(song.id, value)} />
               )}
             </li>
           )
@@ -205,8 +194,8 @@ export function SongLibrary({ selected, onSelect, beatsPerRound }: Props) {
       )}
 
       <p className="text-[12px] text-ink-muted">
-        Procesar descarga el audio y detecta el tempo. El tempo define dónde caen los beats y
-        cuánto dura la partida; la velocidad de la barra la eliges tú en VELOCIDAD.
+        Procesar descarga el audio y detecta el tempo. El tempo es la velocidad: la barra
+        cruza un compás de cuatro beats, así que más BPM es barra más rápida.
       </p>
     </div>
   )
@@ -220,11 +209,9 @@ export function SongLibrary({ selected, onSelect, beatsPerRound }: Props) {
  */
 function BpmEditor({
   song,
-  beatsPerRound,
   onSave,
 }: {
   song: SongStatus
-  beatsPerRound: number
   onSave: (bpm: number | null) => void
 }) {
   const detected = song.bpm ?? 120
@@ -271,11 +258,9 @@ function BpmEditor({
         {valid ? (
           <>
             La barra tarda{' '}
-            <b className="text-cyan">
-              {(beatRoundDurationMs(parsed, beatsPerRound) / 1000).toFixed(2)} s
-            </b>{' '}
-            en cruzar, a {beatsPerRound} beats por ronda. Para cambiar eso, usa VELOCIDAD: el
-            tempo solo alinea la barra con la música.
+            <b className="text-cyan">{(measureDurationMs(parsed) / 1000).toFixed(2)} s</b> en
+            cruzar un compás. <b className="text-gold">Más BPM, barra más rápida.</b> Es la
+            única perilla de velocidad.
           </>
         ) : (
           <>Fuera del rango recomendado.</>

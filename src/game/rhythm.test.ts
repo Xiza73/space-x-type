@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import type { Beatmap } from '../library/client'
 import {
+  MEASURE_BEATS,
   PROGRESSION,
   ROUND,
   ROUND_START_TOLERANCE_MS,
   SONG,
-  SPEED_PRESETS,
 } from './constants'
 import { arcadeRhythm, beatmapRhythm, keyCountFor, songRhythm } from './rhythm'
 
@@ -40,11 +40,12 @@ describe('ritmo arcade', () => {
 })
 
 describe('ritmo canción', () => {
-  const rhythm = songRhythm(2600)
+  const rhythm = songRhythm(120)
 
   it('mantiene la velocidad fija: el tempo lo pone la canción', () => {
-    expect(rhythm.roundDurationMs(0)).toBe(2600)
-    expect(rhythm.roundDurationMs(500)).toBe(2600)
+    // A 120 BPM el compás de cuatro beats dura 2000ms.
+    expect(rhythm.roundDurationMs(0)).toBe(2000)
+    expect(rhythm.roundDurationMs(500)).toBe(2000)
   })
 
   it('termina a los dos minutos', () => {
@@ -69,20 +70,27 @@ describe('ritmo con beatmap', () => {
   const AUDIO_START = 10_000
   const GRID = AUDIO_START + BEATMAP.firstBeatMs
 
-  const rhythm = beatmapRhythm(BEATMAP, AUDIO_START, 4)
+  const rhythm = beatmapRhythm(BEATMAP, AUDIO_START)
 
   it('toma tempo y largo del beatmap', () => {
-    // A 120 BPM un beat dura 500ms, así que cuatro dan 2000.
+    // A 120 BPM un beat dura 500ms, así que el compás de cuatro da 2000.
     expect(rhythm.roundDurationMs(0)).toBe(2000)
     expect(rhythm.totalDurationMs).toBe(BEATMAP.durationMs)
   })
 
-  it('la velocidad la elige el jugador, no el beatmap', () => {
-    // Mismo beatmap, cuatro velocidades. Si esto dejara de valer, elegir
-    // VELOCIDAD no haría nada con una canción de la biblioteca.
-    for (const preset of SPEED_PRESETS) {
-      const suyo = beatmapRhythm(BEATMAP, AUDIO_START, preset.beatsPerRound)
-      expect(suyo.roundDurationMs(0)).toBe(preset.beatsPerRound * 500)
+  it('el beatmap no manda sobre la velocidad: manda el tempo', () => {
+    // `beatsPerRound` y `roundDurationMs` siguen en el esquema por
+    // compatibilidad, pero NO se leen. Si alguien los volviera a usar,
+    // reaparecería la segunda variable de velocidad que ya rompió esto dos
+    // veces. Con valores absurdos ahí adentro, la ronda no se mueve.
+    const mentiroso = { ...BEATMAP, beatsPerRound: 999, roundDurationMs: 999_999 }
+    expect(beatmapRhythm(mentiroso, AUDIO_START).roundDurationMs(0)).toBe(2000)
+  })
+
+  it('el compás es de cuatro beats, como en el original', () => {
+    for (const bpm of [83, 97, 128, 174]) {
+      const suyo = beatmapRhythm({ ...BEATMAP, bpm }, AUDIO_START)
+      expect(suyo.roundDurationMs(0) / (60_000 / bpm)).toBeCloseTo(MEASURE_BEATS, 1)
     }
   })
 
@@ -92,22 +100,9 @@ describe('ritmo con beatmap', () => {
     // 3178ms. Subir el tempo hacía la barra casi el doble de lenta.
     let anterior = Infinity
     for (let bpm = 40; bpm <= 240; bpm++) {
-      const duracion = beatmapRhythm({ ...BEATMAP, bpm }, AUDIO_START, 4).roundDurationMs(0)
+      const duracion = beatmapRhythm({ ...BEATMAP, bpm }, AUDIO_START).roundDurationMs(0)
       expect(duracion).toBeLessThan(anterior)
       anterior = duracion
-    }
-  })
-
-  it('la ronda cae siempre en un número entero de beats', () => {
-    // Si no, la barra se sale de la grilla y el juego deja de ir con la música,
-    // que es lo único que hace que un juego de ritmo sea un juego de ritmo.
-    for (const bpm of [83, 97, 128, 174]) {
-      const beatMs = 60_000 / bpm
-      for (const preset of SPEED_PRESETS) {
-        const duracion = beatmapRhythm({ ...BEATMAP, bpm }, AUDIO_START, preset.beatsPerRound)
-          .roundDurationMs(0)
-        expect(Math.abs(duracion / beatMs - preset.beatsPerRound)).toBeLessThan(0.01)
-      }
     }
   })
 

@@ -1,5 +1,5 @@
 import type { Beatmap } from '../library/client'
-import { beatRoundDurationMs, PROGRESSION, ROUND, SONG } from './constants'
+import { measureDurationMs, PROGRESSION, ROUND, SONG } from './constants'
 import { levelFor } from './engine'
 
 /**
@@ -57,9 +57,10 @@ export function arcadeRhythm(speedScale: number): RhythmSource {
  * el beatmap— y el largo de la secuencia como única palanca. La partida dura
  * un tiempo fijo, igual que duraría una canción.
  */
-export function songRhythm(roundDurationMs: number): RhythmSource {
+export function songRhythm(bpm: number): RhythmSource {
+  const step = measureDurationMs(bpm)
   return {
-    roundDurationMs: () => roundDurationMs,
+    roundDurationMs: () => step,
     sequenceLength: keyCountFor,
     totalDurationMs: SONG.durationMs,
     interRoundPauseMs: ROUND.interRoundPauseMs,
@@ -73,19 +74,13 @@ export function songRhythm(roundDurationMs: number): RhythmSource {
  * `audioStartMs` es cuándo arranca el audio **en el reloj del juego**, o sea en
  * la misma base de tiempo que `nowMs()`. Sin eso la grilla no significaría nada.
  *
- * `beatsPerRound` lo elige el jugador, no el beatmap. Son dos cosas distintas y
- * mezclarlas fue el error original: el **tempo** es una medición del audio, la
- * **velocidad** es una preferencia. Cuando la velocidad se derivaba del tempo,
- * corregir el tempo movía la barra para cualquier lado y el jugador no tenía
- * forma de pedir "más rápido".
+ * La velocidad **no entra como parámetro**: la barra cruza un compás y punto.
+ * El BPM es la única perilla, igual que en el original. Si alguna vez aparece
+ * aquí un segundo argumento de velocidad, volvimos al problema.
  */
-export function beatmapRhythm(
-  beatmap: Beatmap,
-  audioStartMs: number,
-  beatsPerRound: number,
-): RhythmSource {
+export function beatmapRhythm(beatmap: Beatmap, audioStartMs: number): RhythmSource {
   const gridStartMs = audioStartMs + beatmap.firstBeatMs
-  const step = beatRoundDurationMs(beatmap.bpm, beatsPerRound)
+  const step = measureDurationMs(beatmap.bpm)
 
   return {
     roundDurationMs: () => step,
