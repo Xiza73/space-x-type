@@ -60,6 +60,8 @@ export type Visualizer = {
   /** Solo para tests. */
   levels(): Float32Array
   styleId(): string
+  /** Qué posiciones del anillo dibuja esta figura. Solo para tests. */
+  visibleBars(): readonly boolean[]
 }
 
 /** Un tramo del anillo donde hay barras, en grados. El resto queda limpio. */
@@ -83,6 +85,8 @@ type Style = {
  * libre donde van las orejeras; el casco deja libre el visor. Las barras salen
  * de donde la figura no está.
  */
+export const STYLE_COUNT = 4
+
 const STYLES: readonly Style[] = [
   {
     id: 'vinilo',
@@ -148,8 +152,15 @@ const STYLES: readonly Style[] = [
     id: 'casco',
     from: COLORS.gold,
     to: COLORS.flare,
-    // Libre abajo y arriba: el visor ocupa el frente.
-    arcs: [[200, 340]],
+    // Libre arriba y abajo, con barras a los dos costados.
+    //
+    // Antes era un solo tramo `[200, 340]`, o sea **todo el lado izquierdo y
+    // nada del derecho**: en pantalla se leía como que el visualizador estaba
+    // roto. Un tramo suelto no es un diseño asimétrico, es un error.
+    arcs: [
+      [20, 160],
+      [200, 340],
+    ],
     figure: (ctx, r, level) => {
       disc(ctx, r, '#2a2a3d', '#161620')
       // Visor: elipse con reflejo, como un casco espacial.
@@ -313,6 +324,7 @@ export function createVisualizer(seed: number): Visualizer {
 
     levels: () => levels,
     styleId: () => style.id,
+    visibleBars: () => visible,
   }
 }
 

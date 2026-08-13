@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { BAR_COUNT, createVisualizer, seedFrom } from './visualizer'
+import { BAR_COUNT, createVisualizer, seedFrom, STYLE_COUNT } from './visualizer'
 
 /** Un frame de 60fps. */
 const FRAME = 16.7
@@ -104,5 +104,48 @@ describe('visualizador', () => {
       expect(seed).toBeGreaterThanOrEqual(0)
       expect(createVisualizer(seed).styleId()).toBeTypeOf('string')
     }
+  })
+})
+
+describe('el catálogo de figuras', () => {
+  /** Una por estilo, recorriendo semillas hasta juntarlas todas. */
+  const porEstilo = new Map<string, ReturnType<typeof createVisualizer>>()
+  for (let seed = 0; porEstilo.size < STYLE_COUNT && seed < 200; seed++) {
+    const v = createVisualizer(seed)
+    if (!porEstilo.has(v.styleId())) porEstilo.set(v.styleId(), v)
+  }
+
+  it('están todas las figuras del catálogo', () => {
+    expect(porEstilo.size).toBe(STYLE_COUNT)
+  })
+
+  /**
+   * La barra `i` apunta a `(i / BAR_COUNT) * 360` grados, con 0 hacia arriba y
+   * creciendo en el sentido de las agujas. O sea: 90 es la derecha y 270 la
+   * izquierda.
+   */
+  const mitad = (i: number) => {
+    const deg = (i / BAR_COUNT) * 360
+    return deg > 0 && deg < 180 ? 'derecha' : 'izquierda'
+  }
+
+  it.each([...porEstilo.keys()])('%s dibuja barras de los dos lados', (id) => {
+    // **El bug que motivó este test.** `casco` tenía un solo tramo, `[200,340]`,
+    // que es todo el lado izquierdo: en pantalla se leía como un visualizador
+    // roto. Un tramo suelto no es asimetría de diseño, es un error.
+    const visibles = porEstilo.get(id)!.visibleBars()
+    const lados = { derecha: 0, izquierda: 0 }
+    visibles.forEach((v, i) => v && lados[mitad(i)]++)
+
+    expect(lados.derecha).toBeGreaterThan(BAR_COUNT / 8)
+    expect(lados.izquierda).toBeGreaterThan(BAR_COUNT / 8)
+  })
+
+  it.each([...porEstilo.keys()])('%s cubre una parte razonable del anillo', (id) => {
+    // Con muy pocas barras el anillo deja de leerse como espectro.
+    const visibles = porEstilo.get(id)!.visibleBars()
+    const cuantas = visibles.filter(Boolean).length
+
+    expect(cuantas / BAR_COUNT).toBeGreaterThan(0.35)
   })
 })
