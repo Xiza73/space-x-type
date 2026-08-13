@@ -145,7 +145,12 @@ export function startGameLoop({
 
     const { state: next, result } = pressKey(state, rawKey)
     // El tono usa el índice ANTES de avanzar: la primera tecla suena la nota base.
-    if (result === 'advance') sfxKey(state.index)
+    //
+    // Con una canción de verdad no suena: la escalera de tonos está afinada
+    // contra el chiptune, y encima de una canción real queda desafinada y tapa
+    // lo que el jugador vino a escuchar. El error sí suena — avisa de algo que
+    // pasó y hay que enterarse igual.
+    if (result === 'advance' && bpm !== null) sfxKey(state.index)
     if (result === 'reset') sfxWrong()
     state = next
   }

@@ -27,6 +27,32 @@ const MAX_BPM: f32 = 180.0;
 const TARGET_ROUND_MS: f32 = 2400.0;
 const BEATS_PER_ROUND_OPTIONS: [u32; 3] = [2, 4, 8];
 
+/// RMS por debajo del cual una ventana cuenta como silencio (~-40 dBFS).
+///
+/// El piso de ruido de un audio real anda por 0.001; un fundido todavía audible
+/// no baja de 0.01. El umbral va justo en el medio.
+const SILENCE_RMS: f32 = 0.01;
+
+/// Ventana con la que se mide el silencio, en ms.
+///
+/// Media segundo, y no unas pocas muestras, **porque un pico suelto tiene que
+/// perderse en el promedio**. Una muestra de 0.9 en media ventana da un RMS de
+/// 0.006 y queda debajo del umbral; en una ventana de 512 muestras daría 0.04 y
+/// se llevaría puesto el recorte entero. Hay un test que lo fija.
+const SILENCE_WINDOW_MS: u32 = 500;
+
+/// Cola de silencio que se conserva.
+///
+/// Cortar seco en el último golpe se siente a que la app se colgó, no a que la
+/// canción terminó.
+const TAIL_MS: u32 = 2000;
+
+/// Cuánto silencio de más tiene que haber para que valga la pena recortar.
+///
+/// Un final con dos o tres segundos de aire se deja como está: el recorte es
+/// para las pantallas finales de YouTube, que son de decenas de segundos.
+const MIN_TRIM_MS: u32 = 3000;
+
 pub const BEATMAP_VERSION: u32 = 1;
 pub const BEATMAP_FILE: &str = "beatmap.json";
 
@@ -92,7 +118,7 @@ pub fn build_beatmap(samples: &[f32], sample_rate: u32) -> Beatmap {
 
     let bpm = estimate_bpm(&novelty, frames_per_sec);
     let first_beat_sec = estimate_first_beat(&novelty, frames_per_sec, bpm);
-    let duration_ms = (samples.len() as f32 / sample_rate as f32 * 1000.0) as u32;
+    let duration_ms = useful_duration_ms(samples, sample_rate);
 
     let beats_per_round = pick_beats_per_round(bpm);
     let round_duration_ms = (beats_per_round as f32 * 60_000.0 / bpm) as u32;
@@ -195,6 +221,44 @@ pub fn estimate_first_beat(novelty: &[f32], frames_per_sec: f32, bpm: f32) -> f3
     }
 
     best_offset as f32 / frames_per_sec
+}
+
+/// Cuánto dura la canción **para el juego**: hasta el último sonido, más `TAIL_MS`.
+///
+/// Los videos de YouTube suelen terminar con pantallas finales, silencio o un
+/// fundido larguísimo. Sin recortar eso, la partida sigue corriendo sobre la nada
+/// y el jugador tipea contra el vacío hasta que se acaba el tiempo.
+///
+/// **No se toca el archivo de audio**, solo la duración que se anota en el
+/// beatmap. Recortar el audio sería destructivo y no haría falta para nada: lo
+/// que necesita el juego es saber cuándo dejar de contar.
+pub fn useful_duration_ms(samples: &[f32], sample_rate: u32) -> u32 {
+    let total_ms = ms_at(samples.len(), sample_rate);
+
+    let window = (sample_rate as usize * SILENCE_WINDOW_MS as usize / 1000).max(1);
+    let last_loud = samples.chunks(window).rposition(|w| {
+        let sum: f32 = w.iter().map(|s| s * s).sum();
+        (sum / w.len() as f32).sqrt() > SILENCE_RMS
+    });
+
+    // Todo silencio. No hay recorte que no deje la canción en cero, así que se
+    // devuelve entera y que el usuario decida si la borra.
+    let Some(block) = last_loud else {
+        return total_ms;
+    };
+
+    let sound_end_ms = ms_at((block + 1) * window, sample_rate).min(total_ms);
+    let trimmed = sound_end_ms + TAIL_MS;
+
+    if total_ms.saturating_sub(trimmed) > MIN_TRIM_MS {
+        trimmed
+    } else {
+        total_ms
+    }
+}
+
+fn ms_at(sample_index: usize, sample_rate: u32) -> u32 {
+    (sample_index as f32 / sample_rate as f32 * 1000.0) as u32
 }
 
 /// Cuántos beats dura una ronda: el que deje la duración más cerca del objetivo.
@@ -417,6 +481,61 @@ mod tests {
     fn el_beatmap_reporta_la_duracion_del_audio() {
         let beatmap = build_beatmap(&click_track(120.0, 10.0, 0.0), SR);
         assert!((beatmap.duration_ms as i32 - 10_000).abs() < 100);
+    }
+
+    /// Música seguida de silencio, que es como termina medio YouTube.
+    fn con_silencio_final(musica_sec: f32, silencio_sec: f32) -> Vec<f32> {
+        let mut out = click_track(120.0, musica_sec, 0.0);
+        out.extend(std::iter::repeat_n(0.0, (silencio_sec * SR as f32) as usize));
+        out
+    }
+
+    #[test]
+    fn recorta_el_silencio_largo_del_final() {
+        // 10s de música y 20s de nada: la partida no puede durar 30s.
+        let duracion = useful_duration_ms(&con_silencio_final(10.0, 20.0), SR);
+        // Fin de la música a los 10s, más los 2s de cola.
+        assert!(
+            (duracion as i32 - 12_000).abs() < 600,
+            "quedó en {duracion} ms"
+        );
+    }
+
+    #[test]
+    fn no_toca_un_final_con_dos_segundos_de_aire() {
+        // El usuario lo pidió explícito: dos o tres segundos no son un problema.
+        let samples = con_silencio_final(10.0, 2.0);
+        let total = (samples.len() as f32 / SR as f32 * 1000.0) as u32;
+        assert_eq!(useful_duration_ms(&samples, SR), total);
+    }
+
+    #[test]
+    fn un_click_perdido_en_el_silencio_no_arruina_el_recorte() {
+        // Por esto el umbral es de RMS por bloque y no por muestra: el piso de
+        // ruido de un audio real tiene picos sueltos.
+        let mut samples = con_silencio_final(10.0, 20.0);
+        let perdido = (25.0 * SR as f32) as usize;
+        samples[perdido] = 0.9;
+
+        let duracion = useful_duration_ms(&samples, SR);
+        assert!(duracion < 13_000, "el click se llevó el recorte: {duracion} ms");
+    }
+
+    #[test]
+    fn un_audio_todo_en_silencio_se_devuelve_entero() {
+        // Recortarlo lo dejaría en cero, o sea impossible de jugar. Mejor que
+        // suene mudo y el usuario decida borrarlo.
+        let samples = vec![0.0f32; SR as usize * 5];
+        assert!(useful_duration_ms(&samples, SR) > 4_900);
+    }
+
+    #[test]
+    fn el_recorte_nunca_se_pasa_del_audio_real() {
+        // La cola se suma al último sonido, y el último sonido puede estar justo
+        // al final: sin el `min` la canción diría durar más de lo que dura.
+        let samples = click_track(120.0, 3.0, 0.0);
+        let total = (samples.len() as f32 / SR as f32 * 1000.0) as u32;
+        assert!(useful_duration_ms(&samples, SR) <= total);
     }
 
     /// WAV PCM 16 bits mono, escrito a mano. Es la forma de tener un archivo de

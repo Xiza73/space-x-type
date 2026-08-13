@@ -30,7 +30,7 @@ export function App() {
   const [started, setStarted] = useState(false)
   const [sequenceType, setSequenceType] = useState<SequenceType>('arrows')
   const [language, setLanguage] = useState<Language>('es')
-  const [rhythmMode, setRhythmMode] = useState<RhythmMode>('arcade')
+  const [rhythmMode, setRhythmMode] = useState<RhythmMode>(DEFAULTS.rhythmMode)
   const [speed, setSpeed] = useState<SpeedId>(DEFAULTS.speed)
   const [song, setSong] = useState<SongStatus | null>(null)
 
@@ -70,7 +70,9 @@ export function App() {
   return (
     <>
       <main className="grid h-full place-content-center justify-items-center gap-6 px-6 text-center">
-        <p className="text-[11px] font-bold tracking-[6px] text-ink-muted">1P // MODO ARCADE</p>
+        <p className="text-[11px] font-bold tracking-[6px] text-ink-muted">
+          1P // MODO {RHYTHM_OPTIONS.find((o) => o.value === rhythmMode)?.label}
+        </p>
 
         <h1 className="chrome font-display text-6xl leading-none">SPACE x TYPE</h1>
 

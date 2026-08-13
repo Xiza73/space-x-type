@@ -132,6 +132,9 @@ juego, no el audio: `config.startsAtMs` retiene el arranque de las rondas.
   meñique. En flechas pasa lo mismo al revés.
 - **Confirmar con la secuencia incompleta** → `MISS` directo.
 - Cada tecla correcta sube de tono (`440 * 1.12^i`): da feedback de progreso sin mirar.
+  **Salvo con una canción real sonando**, donde no suena: esa escalera está afinada contra
+  el chiptune, y encima de una canción cualquiera queda desafinada y tapa justo lo que el
+  jugador puso. El error sí suena en todos los modos — avisa de algo que hay que saber.
 
 ### Progresión
 

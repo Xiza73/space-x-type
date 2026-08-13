@@ -121,6 +121,12 @@ export const DEFAULTS = {
   bpm: 132,
   speedScale: 1,
   speed: 'normal',
+  /**
+   * Canción, no arcade. Arcade fue el modo que validó la mecánica, pero el
+   * juego que uno abre a jugar es el de la canción propia: arcade se elige a
+   * propósito, canción es a lo que se entra.
+   */
+  rhythmMode: 'song',
 } as const
 
 /** Rangos válidos para la pantalla de configuración. */
