@@ -64,6 +64,20 @@ jobs:
         with:
           workspaces: src-tauri
 
+      # El sidecar de QuickJS no se commitea (`src-tauri/binaries/` está en el
+      # `.gitignore`), pero Tauri lo valida al compilar: sin el archivo, el build
+      # script corta con `resource path ... doesn't exist`. Aquí no hace falta
+      # pasar el triple — el script lo saca de `rustc --print host-tuple`.
+      #
+      # Esto ya falló una vez: el gate compilaba sin el sidecar mientras la
+      # máquina de desarrollo lo tenía bajado de antes, así que el verde local no
+      # significaba nada. Si el paso se saca, vuelve a pasar.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Sidecar de QuickJS
+        run: bun run tools
+
       # `-D warnings` convierte cualquier aviso en error. El proyecto está limpio
       # hoy y la idea es que siga así.
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
