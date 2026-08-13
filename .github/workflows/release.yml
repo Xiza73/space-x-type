@@ -1,0 +1,86 @@
+name: Release
+
+# Se dispara al empujar un tag `v*`. Genera los instaladores de los tres
+# sistemas y los sube a un release en borrador.
+#
+# Es la única forma de tener binarios de macOS y Linux desde acá: `tauri build`
+# compila **solo para la plataforma donde corre**, así que tres sistemas
+# objetivo son tres máquinas o esta matriz. No hay atajo.
+on:
+  push:
+    tags: ['v*']
+  # Para poder probar la matriz sin publicar nada.
+  workflow_dispatch:
+
+jobs:
+  # Nada se publica sin pasar el gate. Se reusa el workflow de CI en vez de
+  # copiarlo: un gate duplicado se desincroniza y termina dejando salir una
+  # versión que no pasó los tests.
+  gate:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: ${{ matrix.nombre }}
+    needs: gate
+    permissions:
+      contents: write
+    strategy:
+      # Sin esto, un fallo en una plataforma cancela las otras dos y no se sabe
+      # si el problema era de esa sola.
+      fail-fast: false
+      matrix:
+        include:
+          - nombre: macOS (Apple Silicon)
+            runner: macos-latest
+            args: --target aarch64-apple-darwin
+            rust-targets: aarch64-apple-darwin
+          - nombre: macOS (Intel)
+            runner: macos-latest
+            args: --target x86_64-apple-darwin
+            rust-targets: x86_64-apple-darwin
+          - nombre: Linux
+            runner: ubuntu-22.04
+            args: ''
+            rust-targets: ''
+          - nombre: Windows
+            runner: windows-latest
+            args: ''
+            rust-targets: ''
+
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Dependencias del sistema
+        if: matrix.runner == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: bun install --frozen-lockfile
+
+      # La acción corre `beforeBuildCommand` (o sea `bun run build`) y después
+      # empaqueta. La versión sale de `tauri.conf.json`.
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: SPACE x TYPE ${{ github.ref_name }}
+          # En borrador a propósito: hay que mirar los artefactos antes de
+          # publicarlos, sobre todo mientras no haya firma de código.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
