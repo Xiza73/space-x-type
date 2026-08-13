@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react'
 import { resumeAudio } from './audio/context'
 import { GameCanvas, type RhythmMode, type SpeedId } from './components/GameCanvas'
 import { Overlays } from './components/Overlays'
+import { Ranking } from './components/Ranking'
 import { SongLibrary } from './components/SongLibrary'
 import { Toggle } from './components/Toggle'
 import { DEFAULTS, SPEED_PRESETS } from './game/constants'
 import type { Language, SequenceType } from './game/sequence'
 import type { SongStatus } from './library/client'
+import { modeKey } from './scores/client'
 import { isPlainKey } from './window'
 
 const SEQUENCE_OPTIONS = [
@@ -156,12 +158,17 @@ export function App() {
           )}
         </div>
 
-        {rhythmMode === 'song' && (
-          <SongLibrary
-            selected={song}
-            onSelect={setSong}
-          />
-        )}
+        {rhythmMode === 'song' && <SongLibrary selected={song} onSelect={setSong} />}
+
+        {/*
+          El ranking de la configuración elegida, y se actualiza al tocar los
+          controles. Antes solo se veía al perder una partida, o sea que para
+          mirar el top 5 había que jugar y morir: un ranking así no se mira.
+        */}
+        <Ranking
+          mode={modeKey(sequenceType, language, rhythmMode, speed)}
+          emptyHint="Nadie puntuó todavía en esta configuración. Estrenala."
+        />
 
         <button
           onClick={() => void start()}

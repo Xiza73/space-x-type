@@ -101,6 +101,14 @@ pub fn load_scores(app: AppHandle, mode: String) -> Result<Vec<Entry>, String> {
     Ok(scores::top_of(&board.entries, &mode))
 }
 
+/// Último nombre usado, para ofrecerlo por defecto en la próxima partida.
+#[tauri::command]
+pub fn last_score_name(app: AppHandle) -> Result<Option<String>, String> {
+    let path = board_path(&app).map_err(to_message)?;
+    let board = scores::read_board(&path).map_err(to_message)?;
+    Ok(scores::last_name(&board.entries))
+}
+
 #[tauri::command]
 pub fn save_score(app: AppHandle, entry: NewScore) -> Result<Vec<Entry>, String> {
     let path = board_path(&app).map_err(to_message)?;
