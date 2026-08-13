@@ -16,7 +16,8 @@ export type Tone = {
 }
 
 let context: AudioContext | null = null
-let master: GainNode | null = null
+let music: GainNode | null = null
+let sfx: GainNode | null = null
 let analyser: AnalyserNode | null = null
 
 /**
@@ -30,25 +31,41 @@ export function getAudioContext(): AudioContext {
 }
 
 /**
- * Salida maestra. **Todo lo que suena se conecta aquí**, nunca a `destination`.
+ * Salida de la **música**: la canción o el chiptune. Pasa por el analizador.
  *
- * El grafo es `fuentes → master → analyser → destination`. Ese punto único es
- * lo que permite que el fondo reaccione a lo que realmente se escucha, sin que
- * cada fuente tenga que enterarse de que existe un fondo: el chiptune, la
- * canción y los efectos siguen sin saber nada.
+ * El grafo tiene dos ramas a propósito:
+ *
+ * ```
+ * música   → music → analyser → destination
+ * efectos  → sfx ─────────────→ destination
+ * ```
+ *
+ * Los efectos del juego **no** pasan por el analizador. Si pasaran, el
+ * visualizador reaccionaría a cada tecla que toca el jugador y a cada veredicto
+ * de ronda, y el anillo se convertiría en un medidor de lo que uno mismo está
+ * apretando en vez de en una reacción a la canción. Que es exactamente lo que
+ * pasaba antes de separar esto.
+ *
+ * El chiptune sí va por la rama de música: es la música cuando no hay canción.
  */
-export function masterOut(): GainNode {
+export function musicOut(): GainNode {
   buildGraph()
-  return master as GainNode
+  return music as GainNode
+}
+
+/** Salida de los efectos. Va derecho a la placa, sin pasar por el analizador. */
+export function sfxOut(): GainNode {
+  buildGraph()
+  return sfx as GainNode
 }
 
 /**
- * El analizador del que lee el fondo reactivo.
+ * El analizador del que lee el visualizador. **Solo escucha la música.**
  *
  * `smoothingTimeConstant` va bajo a propósito: el suavizado de verdad lo hace
- * el campo de luces, con ataque instantáneo y caída lenta. Suavizar aquí
- * además redondearía los golpes y las luces dejarían de marcar el ritmo, que
- * es justo lo único que tienen que hacer.
+ * el visualizador, con ataque instantáneo y caída lenta. Suavizar aquí además
+ * redondearía los golpes y las barras dejarían de marcar el ritmo, que es lo
+ * único que tienen que hacer.
  */
 export function getAnalyser(): AnalyserNode {
   buildGraph()
@@ -56,17 +73,19 @@ export function getAnalyser(): AnalyserNode {
 }
 
 function buildGraph(): void {
-  if (master !== null) return
+  if (music !== null) return
   const ctx = getAudioContext()
 
-  master = ctx.createGain()
+  music = ctx.createGain()
+  sfx = ctx.createGain()
   analyser = ctx.createAnalyser()
   // 512 bins sobre el espectro: ~43 Hz por bin a 44.1 kHz. Suficiente para
-  // separar graves de agudos, y barato de leer una vez por frame.
+  // separar bandas, y barato de leer una vez por frame.
   analyser.fftSize = 1024
   analyser.smoothingTimeConstant = 0.3
 
-  master.connect(analyser).connect(ctx.destination)
+  music.connect(analyser).connect(ctx.destination)
+  sfx.connect(ctx.destination)
 }
 
 /**
@@ -109,8 +128,10 @@ export function nowMs(): number {
  * Agenda un tono. `atSec` va en segundos del reloj de audio (no en ms):
  * es la unidad que espera la Web Audio API y aquí estamos del lado del audio.
  *
+ * `out` decide por qué rama sale. Por defecto es la de efectos, que es lo que
+ * quiere quien llama sin pensarlo: los tonos del juego no son música.
  */
-export function playTone(tone: Tone, atSec?: number): void {
+export function playTone(tone: Tone, atSec?: number, out?: GainNode): void {
   const ctx = getAudioContext()
   const at = atSec ?? ctx.currentTime
 
@@ -127,7 +148,7 @@ export function playTone(tone: Tone, atSec?: number): void {
   gain.gain.setValueAtTime(tone.gain, at)
   gain.gain.exponentialRampToValueAtTime(0.001, at + tone.durationSec)
 
-  osc.connect(gain).connect(masterOut())
+  osc.connect(gain).connect(out ?? sfxOut())
   osc.start(at)
   osc.stop(at + tone.durationSec + 0.02)
 }
