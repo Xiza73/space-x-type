@@ -172,6 +172,34 @@ tener excepciones, porque no hay una segunda variable que la desvíe.
 > Hay tests de los dos lados que recorren los 200 tempos de a uno y fallan si la relación se
 > vuelve a dar vuelta.
 
+> ### La detección de tempo busca entre 60 y 145, y eso es una decisión
+>
+> Una canción genuinamente más rápida sale **a la mitad**. Se elige quedarse corto porque el
+> error que aparece una y otra vez es el contrario: baladas detectadas al doble. "Yellow" daba
+> 172 en vez de 86.
+>
+> **No es falta de ajuste.** Yellow tiene una guitarra rasgueada en corcheas, todas igual de
+> fuertes: el pulso de 86 no está en la fuerza de los golpes sino en la armonía, que la función
+> de novedad no ve. Se midieron tres formas de distinguirlo y **ninguna separa** una balada con
+> corcheas de un tema rápido con acentos:
+>
+> | intento | resultado |
+> |---|---|
+> | filtrar por banda de frecuencia | graves, medios y completo dan lo mismo en 8 de 9 |
+> | mover la preferencia de tempo | arregla una canción y rompe otra, siempre |
+> | comparar la fuerza de los golpes intermedios | Yellow da 0.93 y Can Can 0.77 — al revés de lo predicho |
+>
+> Medido sobre nueve canciones reales, estrechar el rango arregla "Yellow" y **no mueve ninguna
+> otra**, salvo "Can Can" —rápida de verdad— que pasa a salir a la mitad.
+>
+> Así el error queda en **una sola dirección**: predecible, y corregible con el botón ×2. Para
+> jugar además conviene, porque una barra lenta de más se juega igual y una a 172 con ocho
+> teclas no.
+>
+> Para volver a tocar esto hay que medir contra audio real, con `banco::biblioteca_real`. Las
+> señales sintéticas fijan propiedades pero no calibran: un tren de clicks no se parece a una
+> balada.
+
 En la canción **simulada** el jugador elige el BPM, y ese mismo BPM mueve el chiptune y la
 barra: van juntos. En la **real** el BPM sale del análisis y se ajusta en la biblioteca.
 
