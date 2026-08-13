@@ -7,7 +7,16 @@ import {
   type GameState,
   type Stats,
 } from '../game/engine'
-import { loadScores, MAX_NAME_LEN, saveScore, type ScoreEntry } from '../scores/client'
+import {
+  lastScoreName,
+  loadScores,
+  MAX_NAME_LEN,
+  newEntryAt,
+  saveScore,
+  type ScoreEntry,
+} from '../scores/client'
+import { isPlainKey } from '../window'
+import { Ranking } from './Ranking'
 
 type Props = {
   state: GameState
@@ -27,6 +36,7 @@ export function GameOver({ state, mode, onRetry, onMenu }: Props) {
   const [name, setName] = useState('')
   const [board, setBoard] = useState<ScoreEntry[]>([])
   const [saved, setSaved] = useState(false)
+  const [mine, setMine] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -34,9 +44,19 @@ export function GameOver({ state, mode, onRetry, onMenu }: Props) {
     loadScores(mode).then(setBoard, (e: unknown) => setError(String(e)))
   }, [mode])
 
+  // El nombre de la última partida viene ya escrito. Es lo que evita el
+  // XIZA / XIZAAAA / GAAA que aparece cuando hay que teclearlo cada vez.
+  useEffect(() => {
+    lastScoreName().then(
+      (previo) => previo !== null && setName(previo),
+      () => {},
+    )
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Enter') return
+      // ALT+ENTER es pantalla completa, no "guardar".
+      if (event.key !== 'Enter' || !isPlainKey(event)) return
       // Con el foco en el input, ENTER guarda. Afuera, reintenta.
       if (event.target === inputRef.current) void save()
       else onRetry()
@@ -48,9 +68,15 @@ export function GameOver({ state, mode, onRetry, onMenu }: Props) {
   async function save() {
     if (saved) return
     try {
-      setBoard(
-        await saveScore({ name, score: state.score, maxCombo: state.maxCombo, mode }),
-      )
+      const actualizado = await saveScore({
+        name,
+        score: state.score,
+        maxCombo: state.maxCombo,
+        mode,
+      })
+
+      setMine(newEntryAt(board, actualizado))
+      setBoard(actualizado)
       setSaved(true)
       setError(null)
     } catch (e: unknown) {
@@ -134,18 +160,17 @@ export function GameOver({ state, mode, onRetry, onMenu }: Props) {
         <p className="max-w-[420px] text-[13px] text-red">No se pudo guardar: {error}</p>
       )}
 
-      {board.length > 0 && (
-        <div className="flex min-w-[300px] flex-col gap-2 rounded-2xl border border-line-card bg-linear-to-b from-surface to-surface-deep px-6 py-4">
-          <span className="text-[11px] font-bold tracking-[3px] text-ink-muted">RANKING</span>
-          {board.map((entry, i) => (
-            <div key={`${entry.name}-${entry.at}`} className="flex justify-between gap-8 text-sm">
-              <span>
-                <b className="text-gold">#{i + 1}</b> <span className="font-semibold">{entry.name}</span>
-              </span>
-              <span className="font-display text-[13px] text-cyan">{entry.score}</span>
-            </div>
-          ))}
-        </div>
+      <Ranking
+        mode={mode}
+        entries={board}
+        highlight={mine}
+        emptyHint="Guarda tu puntaje para estrenar esta tabla."
+      />
+
+      {saved && mine === null && (
+        <p className="text-[13px] text-ink-muted">
+          Guardado, pero no alcanzó para el top 5 de esta configuración.
+        </p>
       )}
 
       <div className="flex gap-3">

@@ -97,6 +97,18 @@ pub fn insert(entries: &[Entry], entry: Entry) -> Vec<Entry> {
     out
 }
 
+/// El nombre de la entrada más reciente, de cualquier modo.
+///
+/// Sirve para no obligar al jugador a reescribir su nombre en cada partida.
+/// **No se guarda aparte**: se deduce del ranking, así que no hay un campo nuevo
+/// que versionar ni un archivo más que pueda desincronizarse del que ya existe.
+pub fn last_name(entries: &[Entry]) -> Option<String> {
+    entries
+        .iter()
+        .max_by_key(|entry| entry.at)
+        .map(|entry| entry.name.clone())
+}
+
 pub fn now_seconds() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -215,6 +227,23 @@ mod tests {
         }
         entries = insert(&entries, entry("FLOJO", 1, "arcade", 99));
         assert!(!top_of(&entries, "arcade").iter().any(|e| e.name == "FLOJO"));
+    }
+
+    #[test]
+    fn el_ultimo_nombre_sale_de_la_entrada_mas_reciente() {
+        // Deliberadamente desordenadas y de modos distintos: el nombre que se
+        // ofrece es el último que el jugador escribió, sin importar qué jugó.
+        let entries = vec![
+            entry("VIEJO", 100, "arcade", 10),
+            entry("NUEVO", 5, "words-es/song-normal", 99),
+            entry("MEDIO", 400, "arcade", 50),
+        ];
+        assert_eq!(last_name(&entries).as_deref(), Some("NUEVO"));
+    }
+
+    #[test]
+    fn sin_ranking_no_hay_nombre_que_ofrecer() {
+        assert_eq!(last_name(&[]), None);
     }
 
     #[test]

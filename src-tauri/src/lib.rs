@@ -19,6 +19,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::load_scores,
             commands::save_score,
+            commands::last_score_name,
             commands::process_song,
             commands::list_songs,
             commands::delete_song,
