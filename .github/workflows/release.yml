@@ -108,6 +108,15 @@ jobs:
         with:
           name: ${{ matrix.nombre }}
           if-no-files-found: error
+          # Solo los paquetes, no el árbol entero de `bundle/`: los
+          # empaquetadores dejan ahí los directorios intermedios que usan para
+          # armarlos, y con `**/*` se suben también. La corrida de prueba dio
+          # 186 MB en Linux contra 5 MB en Windows.
           path: |
-            src-tauri/target/release/bundle/**/*
-            src-tauri/target/*/release/bundle/**/*
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.rpm
+            src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/*/release/bundle/**/*.dmg
+            src-tauri/target/*/release/bundle/**/*.app.tar.gz
