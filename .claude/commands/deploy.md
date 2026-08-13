@@ -57,9 +57,13 @@ que corra:
 bun run tauri build
 ```
 
-Salida en `src-tauri/target/release/bundle/`. Recordá que **solo se generan binarios para
-la plataforma donde corres el build** — para Windows/macOS/Linux hacen falta tres máquinas
-o CI con matriz de sistemas operativos.
+Salida en `src-tauri/target/release/bundle/`. **Solo se generan binarios para la plataforma
+donde corres el build.**
+
+Para los tres sistemas está `.github/workflows/release.yml`: empujar un tag `v*` dispara la
+matriz —macOS Apple Silicon, macOS Intel, Linux y Windows— y sube todo a un release en
+borrador. Antes de construir corre el gate completo, así que no puede publicarse algo que no
+pasó los tests.
 
 ## Notas
 

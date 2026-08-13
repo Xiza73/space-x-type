@@ -1,0 +1,14 @@
+# Compilador fijado: la misma versión en tu máquina y en el CI.
+#
+# Sin esto, `cargo clippy` local y el del runner son programas distintos. Pasó en
+# la primera corrida del CI: aquí había 1.94 y allá 1.97, el gate local daba
+# verde y el remoto encontraba un lint que la versión vieja no tenía.
+#
+# Para una app que se distribuye, importa además por otra razón: el binario que
+# sale del CI lo compila el mismo compilador con el que se desarrolla.
+#
+# **Subir este número es una decisión, no un accidente.** Al cambiarlo pueden
+# aparecer lints nuevos; se corrigen en ese commit y no en uno cualquiera.
+[toolchain]
+channel = "1.97.0"
+components = ["clippy", "rustfmt"]

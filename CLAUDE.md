@@ -102,7 +102,12 @@ cargo fmt   --manifest-path src-tauri/Cargo.toml    # formato Rust
 `package-lock.json` ni `pnpm-lock.yaml`, solo `bun.lock`.
 
 Gate antes de commitear: `bun run typecheck && bun run lint && bun run test` y, si tocaste
-Rust, `cargo clippy` + `cargo test`.
+Rust, `cargo clippy` + `cargo test`. Lo mismo corre solo en cada PR
+(`.github/workflows/ci.yml`).
+
+**La versión de Rust está fijada en `rust-toolchain.toml`.** No es burocracia: la primera
+corrida del CI falló por un lint que existía en su compilador y no en el local. Ahora los dos
+usan el mismo, y subir ese número es una decisión que se toma en su propio commit.
 
 ## Reglas detalladas
 

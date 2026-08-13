@@ -1,0 +1,113 @@
+name: Release
+
+# Se dispara al empujar un tag `v*`. Genera los instaladores de los tres
+# sistemas y los sube a un release en borrador.
+#
+# Es la única forma de tener binarios de macOS y Linux desde acá: `tauri build`
+# compila **solo para la plataforma donde corre**, así que tres sistemas
+# objetivo son tres máquinas o esta matriz. No hay atajo.
+on:
+  push:
+    tags: ['v*']
+  # Para poder probar la matriz sin publicar nada.
+  workflow_dispatch:
+
+jobs:
+  # Nada se publica sin pasar el gate. Se reusa el workflow de CI en vez de
+  # copiarlo: un gate duplicado se desincroniza y termina dejando salir una
+  # versión que no pasó los tests.
+  gate:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: ${{ matrix.nombre }}
+    needs: gate
+    permissions:
+      contents: write
+    strategy:
+      # Sin esto, un fallo en una plataforma cancela las otras dos y no se sabe
+      # si el problema era de esa sola.
+      fail-fast: false
+      matrix:
+        include:
+          - nombre: macOS (Apple Silicon)
+            runner: macos-latest
+            args: --target aarch64-apple-darwin
+            rust-targets: aarch64-apple-darwin
+          - nombre: macOS (Intel)
+            runner: macos-latest
+            args: --target x86_64-apple-darwin
+            rust-targets: x86_64-apple-darwin
+          - nombre: Linux
+            runner: ubuntu-22.04
+            args: ''
+            rust-targets: ''
+          - nombre: Windows
+            runner: windows-latest
+            args: ''
+            rust-targets: ''
+
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Dependencias del sistema
+        if: matrix.runner == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Igual que en CI: la versión sale de `rust-toolchain.toml`. El target se
+      # agrega **a ese** toolchain, no a uno nuevo.
+      - name: Toolchain fijado
+        run: rustup show active-toolchain
+
+      - name: Target de la arquitectura
+        if: matrix.rust-targets != ''
+        run: rustup target add ${{ matrix.rust-targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: bun install --frozen-lockfile
+
+      # La acción corre `beforeBuildCommand` (o sea `bun run build`) y después
+      # empaqueta. La versión sale de `tauri.conf.json`.
+      #
+      # **`tagName` va vacío cuando no hay tag.** Sin eso, un disparo manual
+      # crearía un release con el nombre de la rama, que es basura en la lista
+      # de releases. Con el campo vacío la acción compila y empaqueta pero no
+      # publica nada, que es justo lo que hace falta para probar la matriz.
+      - uses: tauri-apps/tauri-action@v1
+        id: tauri
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('SPACE x TYPE {0}', github.ref_name) || '' }}
+          # En borrador a propósito: hay que mirar los artefactos antes de
+          # publicarlos, sobre todo mientras no haya firma de código.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # En un disparo manual no hay release donde dejarlos, así que se suben
+      # como artefactos de la corrida y se pueden bajar para revisarlos.
+      #
+      # Van los dos patrones de ruta porque no son iguales: con `--target` —los
+      # dos macOS— el bundle queda bajo `target/<triple>/release`, y sin él bajo
+      # `target/release`.
+      - name: Guardar los paquetes
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.nombre }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/**/*
+            src-tauri/target/*/release/bundle/**/*

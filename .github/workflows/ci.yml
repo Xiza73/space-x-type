@@ -1,0 +1,70 @@
+name: CI
+
+# El mismo gate que se corre a mano antes de commitear, ahora automático.
+#
+# `workflow_call` no es adorno: deja que el workflow de release lo invoque en vez
+# de copiarlo. Un gate duplicado es un gate que se desincroniza, y el día que eso
+# pasa se publica una versión que no pasó los tests.
+on:
+  push:
+    branches: [dev, master]
+  pull_request:
+    branches: [dev, master]
+  workflow_call:
+
+# Un push nuevo sobre la misma rama cancela la corrida anterior: la que importa
+# es la última.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # `--frozen-lockfile` es deliberado: si el lock no coincide con el
+      # manifiesto, el CI falla en vez de resolver versiones distintas a las de
+      # la máquina donde se desarrolló.
+      - run: bun install --frozen-lockfile
+
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
+
+  rust:
+    name: Core Rust
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # El core depende de `tauri`, que en Linux enlaza contra el WebView del
+      # sistema. Sin esto no compila ni para correr los tests.
+      #
+      # Es **4.1**, no 4.0: la 4.0 es de Tauri v1 y es el motivo clásico de que
+      # un CI de v2 no arranque.
+      - name: Dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      # No se instala `stable`: `rust-toolchain.toml` fija la versión y rustup la
+      # baja sola. Pedir `stable` aquí traería un compilador distinto al del
+      # archivo, que es justo lo que se quiere evitar.
+      - name: Toolchain fijado
+        run: rustup show active-toolchain
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # `-D warnings` convierte cualquier aviso en error. El proyecto está limpio
+      # hoy y la idea es que siga así.
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml

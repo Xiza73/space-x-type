@@ -120,7 +120,7 @@ pub fn ensure_inside(base: &Path, candidate: &Path) -> Result<(), LibraryError> 
 pub fn upsert(songs: &[Song], song: Song) -> Vec<Song> {
     let mut out: Vec<Song> = songs.iter().filter(|s| s.id != song.id).cloned().collect();
     out.push(song);
-    out.sort_by(|a, b| b.added_at.cmp(&a.added_at));
+    out.sort_by_key(|song| std::cmp::Reverse(song.added_at));
     out
 }
 
