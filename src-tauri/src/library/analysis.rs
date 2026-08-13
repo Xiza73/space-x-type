@@ -83,8 +83,17 @@ pub struct Beatmap {
 }
 
 /// Límites duros para una corrección manual del tempo.
-pub const MIN_BPM_EDIT: f32 = 40.0;
-pub const MAX_BPM_EDIT: f32 = 240.0;
+///
+/// Anchos a propósito. El rango **sugerido** —la mitad al doble de lo medido—
+/// cubre el error de octava, que es el fallo típico, pero no es la única razón
+/// para tocar el tempo: alguien puede querer jugar una balada al doble de
+/// velocidad. Sugerir no es prohibir.
+///
+/// Los que sí son límites: abajo de 30 la barra tarda más de ocho segundos en
+/// cruzar y arriba de 300 no llega a un segundo. Fuera de ahí no es una
+/// preferencia, es una partida rota.
+pub const MIN_BPM_EDIT: f32 = 30.0;
+pub const MAX_BPM_EDIT: f32 = 300.0;
 
 /// Rango sugerido para corregir a mano, alrededor del detectado.
 ///

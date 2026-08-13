@@ -97,6 +97,17 @@ export const SONG = {
 export const MEASURE_BEATS = 4
 
 /**
+ * Límites duros del tempo editable a mano. **Espejan `MIN_BPM_EDIT` y
+ * `MAX_BPM_EDIT` de `analysis.rs`**, que es donde se validan de verdad: esto es
+ * para que el campo no deje escribir algo que el backend va a recortar sin
+ * avisar.
+ *
+ * Anchos a propósito: el rango *sugerido* que muestra la biblioteca cubre el
+ * error de octava, pero sugerir no es prohibir.
+ */
+export const BPM_LIMITS = { min: 30, max: 300 } as const
+
+/**
  * Cuánto tarda la barra en cruzar, dado el tempo.
  *
  * Vive aquí y no en el ritmo porque la biblioteca la muestra antes de jugar: el

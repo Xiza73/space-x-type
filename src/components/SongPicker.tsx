@@ -108,6 +108,11 @@ export function SongPicker({ songs, selected, onSelect }: Props) {
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
+        // `onFocus` no alcanza. Después de elegir, el campo **se queda con el
+        // foco** y el desplegable cerrado: el siguiente click no dispara un
+        // foco nuevo, así que sin esto había que clickear afuera y volver para
+        // poder cambiar de canción.
+        onClick={() => setOpen(true)}
         onKeyDown={onKeyDown}
         spellCheck={false}
         className="w-full cursor-pointer rounded-lg border-2 border-line bg-sunken px-3 py-2.5 text-sm text-ink outline-none focus:border-cyan"
@@ -117,7 +122,12 @@ export function SongPicker({ songs, selected, onSelect }: Props) {
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-[280px] w-full overflow-y-auto rounded-lg border-2 border-line bg-surface-deep py-1 shadow-[0_12px_30px_rgb(0_0_0/0.55)]"
+          // Se abre hacia ARRIBA, y no es solo comodidad. Abriendo hacia abajo,
+          // el desplegable —que es absoluto pero vive dentro del área que
+          // scrollea— estiraba el alto scrolleable y aparecía una barra en toda
+          // la pantalla. Hacia arriba se superpone sobre contenido que ya
+          // estaba, así que no agranda nada.
+          className="absolute bottom-full z-20 mb-1 max-h-[280px] w-full overflow-y-auto rounded-lg border-2 border-line bg-surface-deep py-1 shadow-[0_-12px_30px_rgb(0_0_0/0.55)]"
         >
           {matches.length === 0 && (
             <li className="px-3 py-2 text-[13px] text-ink-muted">Ninguna coincide.</li>
