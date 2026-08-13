@@ -136,6 +136,13 @@ sobre todo, con `pointer-events:none`.
 del anillo. Reemplaza al fondo psicodélico del prototipo **y** al plan de poner el video de
 YouTube de fondo.
 
+**El visualizador solo escucha la música.** El grafo de audio tiene dos ramas —
+`música → analyser → destination` y `efectos → destination`— y los efectos del juego no
+pasan por el analizador. Si pasaran, el anillo reaccionaría a cada tecla que toca el jugador
+y a cada veredicto de ronda: sería un medidor de lo que uno mismo aprieta, no una reacción a
+la canción. El chiptune sí va por la rama de música, porque cuando no hay canción el
+chiptune **es** la música.
+
 **El estado base es la figura sola, sin ninguna barra.** Hay una compuerta de nivel: lo que
 no pasa el umbral no se dibuja. Sin eso, el piso de ruido del análisis mantenía todo el
 anillo levantado a media asta y las barras se leían como decoración permanente en vez de

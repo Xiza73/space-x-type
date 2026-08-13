@@ -1,4 +1,4 @@
-import { getAudioContext, playTone, type Tone } from './context'
+import { getAudioContext, musicOut, playTone, type Tone } from './context'
 
 /**
  * Música chiptune generada con osciladores. Cero assets, cero descargas.
@@ -83,7 +83,11 @@ export function startChiptune(bpm: number, random: () => number = Math.random): 
 
   timer = setInterval(() => {
     while (nextAtSec < ctx.currentTime + LOOKAHEAD_SEC) {
-      for (const voice of patternAt(step, beatSec, random)) playTone(voice, nextAtSec)
+      // Por la rama de música, no la de efectos: cuando no hay canción, el
+      // chiptune ES la canción, y el visualizador tiene que verlo.
+      for (const voice of patternAt(step, beatSec, random)) {
+        playTone(voice, nextAtSec, musicOut())
+      }
       nextAtSec += stepSec
       step++
     }

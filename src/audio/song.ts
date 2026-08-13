@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 
-import { getAudioContext, masterOut } from './context'
+import { getAudioContext, musicOut } from './context'
 
 /**
  * Reproducción de una canción de la biblioteca.
@@ -33,7 +33,7 @@ export function playSong(buffer: AudioBuffer): SongPlayback {
   const ctx = getAudioContext()
   const source = ctx.createBufferSource()
   source.buffer = buffer
-  source.connect(masterOut())
+  source.connect(musicOut())
 
   const startAt = ctx.currentTime + LEAD_SEC
   source.start(startAt)
