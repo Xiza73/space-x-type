@@ -11,7 +11,7 @@ export type Judgement = 'perfect' | 'great' | 'good' | 'bad' | 'miss'
  * existir; con eso, es el aviso de que estás al borde antes de empezar a
  * perder vidas.
  *
- * La progresión no figura acá: avanza con **toda** ronda jugada, se gane o no.
+ * La progresión no figura aquí: avanza con **toda** ronda jugada, se gane o no.
  */
 const RULES: Record<Judgement, { score: number; keepsCombo: boolean; costsLife: boolean }> = {
   perfect: { score: SCORING.perfect, keepsCombo: true, costsLife: false },
@@ -26,7 +26,7 @@ const RULES: Record<Judgement, { score: number; keepsCombo: boolean; costsLife: 
  * pero se arreglan con números distintos, así que hay que poder distinguirlos.
  */
 export type MissReason =
-  /** Se acabó la barra sin que apretaras espacio. */
+  /** Se acabó la barra sin que presionaras espacio. */
   | 'timeout'
   /** Apretaste espacio con la secuencia sin terminar. */
   | 'incomplete'
@@ -50,7 +50,7 @@ export type Stats = {
   missWindow: number
   /**
    * Suma de desvíos respecto del centro de PERFECT, en milisegundos.
-   * Negativo = apretás antes de tiempo. Solo cuenta rondas con la secuencia
+   * Negativo = presionas antes de tiempo. Solo cuenta rondas con la secuencia
    * completa: las demás no dicen nada sobre tu timing.
    */
   offsetSumMs: number
@@ -149,7 +149,7 @@ export type GameState = {
   /**
    * Lo antes que puede arrancar la próxima ronda.
    *
-   * Un `miss` suma una ronda entera de espera: si no, machacar espacio después
+   * Un `miss` suma una ronda entera de espera: si no, insistir con espacio después
    * de fallar encadena fallos, y el jugador se come tres vidas sin haber tenido
    * ninguna chance de reaccionar.
    */
@@ -212,23 +212,35 @@ export function createGame(config: GameConfig): GameState {
 }
 
 /**
- * Arranca una ronda.
+ * Deja lista la próxima secuencia.
  *
- * La secuencia **y la duración** llegan como dato. El motor no sabe si son
- * flechas o una palabra, ni si el ritmo acelera o es fijo. Ahí viven los dos
- * ejes ortogonales: eje 1 arma la secuencia, eje 2 dice cuánto dura.
+ * Se llama apenas se resuelve una ronda, para que el jugador vea lo que viene
+ * —apagado— durante todo el hueco. Cuando la ronda arranca, esa misma secuencia
+ * se enciende: lo que se mostró es exactamente lo que se juega.
+ *
+ * La secuencia llega **como dato**: el motor no sabe si son flechas o una
+ * palabra. Ahí vive el eje 1.
  */
-export function startRound(
-  state: GameState,
-  sequence: readonly Step[],
-  durationMs: number,
-  nowMs: number,
-): GameState {
+export function armSequence(state: GameState, sequence: readonly Step[]): GameState {
+  // Con una ronda en curso pisaría lo que el jugador está tocando; terminada la
+  // partida no hay nada que anticipar.
+  if (state.status === 'round' || state.status === 'preview' || state.status === 'over') {
+    return state
+  }
+  return { ...state, sequence, index: 0 }
+}
+
+/**
+ * Enciende la secuencia ya armada y arranca la ronda.
+ *
+ * La duración llega como dato: el motor no sabe si el ritmo acelera o es fijo.
+ * Ahí vive el eje 2.
+ */
+export function startRound(state: GameState, durationMs: number, nowMs: number): GameState {
   if (state.status !== 'idle') return state
   return {
     ...state,
     status: 'round',
-    sequence,
     index: 0,
     roundStartMs: nowMs,
     roundDurationMs: durationMs,
@@ -247,13 +259,9 @@ export function startRound(
  */
 export function abortRound(state: GameState, nowMs: number): GameState {
   if (state.status !== 'round' && state.status !== 'preview') return state
-  return {
-    ...state,
-    status: 'idle',
-    sequence: [],
-    index: 0,
-    resumeAtMs: nowMs,
-  }
+  // La secuencia armada se conserva: sigue siendo lo que viene, y borrarla
+  // dejaría la pantalla vacía por un frame.
+  return { ...state, status: 'idle', index: 0, resumeAtMs: nowMs }
 }
 
 /**
@@ -267,7 +275,6 @@ export function abortRound(state: GameState, nowMs: number): GameState {
  */
 export function startPreview(
   state: GameState,
-  sequence: readonly Step[],
   durationMs: number,
   startAtMs: number,
 ): GameState {
@@ -275,7 +282,6 @@ export function startPreview(
   return {
     ...state,
     status: 'preview',
-    sequence,
     index: 0,
     roundStartMs: startAtMs,
     roundDurationMs: durationMs,
@@ -321,7 +327,7 @@ function resolve(
     lives,
     level: levelFor(rounds),
     resolvedAtMs: nowMs,
-    // Fallar no suma espera acá: la espera es la ronda de anticipo que arma el
+    // Fallar no suma espera aquí: la espera es la ronda de anticipo que arma el
     // loop, y que además le muestra al jugador lo que viene.
     resumeAtMs: nowMs + state.config.interRoundPauseMs,
     lastJudgement: judgement,

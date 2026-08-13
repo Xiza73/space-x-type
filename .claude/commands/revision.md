@@ -4,7 +4,7 @@ argument-hint: "[ruta o rama a comparar — por defecto el diff sin commitear]"
 allowed-tools: Read, Grep, Glob, Bash(git diff:*), Bash(git status:*), Bash(git log:*)
 ---
 
-Revisá los cambios en `$ARGUMENTS` (si está vacío, usá el diff sin commitear:
+Revisa los cambios en `$ARGUMENTS` (si está vacío, usa el diff sin commitear:
 `git diff HEAD`).
 
 ## Alcance
@@ -38,5 +38,5 @@ Una línea por hallazgo, ordenadas de más grave a menos:
 
 Gravedad: `CRÍTICO` (rompe o corrompe) · `IMPORTANTE` (deuda real) · `SUGERENCIA` (mejora).
 
-Si no hay nada que reportar, decilo en una línea. **No inventes hallazgos para llenar.**
+Si no hay nada que reportar, dilo en una línea. **No inventes hallazgos para llenar.**
 No apliques los cambios salvo que se te pida.

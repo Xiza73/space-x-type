@@ -1,6 +1,6 @@
 //! Descarga del audio con `yt-dlp`.
 //!
-//! Acá está el límite de confianza más caliente del proyecto: se le pasa a un
+//! Aquí está el límite de confianza más caliente del proyecto: se le pasa a un
 //! proceso externo una URL que escribió el usuario.
 
 use std::fs;
@@ -40,7 +40,7 @@ pub struct Downloaded {
 /// - Nada de shell (`cmd /c`, `sh -c`, `powershell`).
 /// - La URL va **después de `--`**, para que algo que empiece con `-` no se
 ///   pueda hacer pasar por un flag de yt-dlp.
-/// - Los flags son fijos y están acá. El usuario no aporta ninguno.
+/// - Los flags son fijos y están aquí. El usuario no aporta ninguno.
 /// - `--no-playlist` es crítico: sin eso, una URL con `&list=` se baja la
 ///   playlist entera, que es una descarga que el usuario nunca pidió.
 pub fn download(url: &str, dir: &Path, stem: &str) -> Result<Downloaded, LibraryError> {
@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     fn no_revienta_si_no_hay_json() {
-        let info = parse_info("nada util por acá");
+        let info = parse_info("nada util por aquí");
         assert_eq!(info.title, "");
         assert_eq!(info.duration, None);
     }

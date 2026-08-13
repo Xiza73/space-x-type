@@ -3,7 +3,7 @@
 //! silencio un archivo corrupto**.
 //!
 //! Lo usan el ranking y la biblioteca. Que exista una sola implementación no es
-//! prolijidad: son datos que el usuario acumula y no puede volver a generar.
+//! orden: son datos que el usuario acumula y no puede volver a generar.
 
 use std::fs;
 use std::path::Path;

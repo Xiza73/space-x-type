@@ -5,9 +5,10 @@ import { loadSong, playSong, type SongPlayback } from '../audio/song'
 import { COUNTDOWN_SECONDS, DEFAULTS, SPEED_PRESETS } from '../game/constants'
 import type { GameState } from '../game/engine'
 import { startGameLoop, type Loop } from '../game/loop'
+import type { TrackInfo } from '../game/render'
 import { arcadeRhythm, beatmapRhythm, songRhythm, type RhythmSource } from '../game/rhythm'
 import { sequenceProvider, type Language, type SequenceType } from '../game/sequence'
-import { songBeatmap } from '../library/client'
+import { songBeatmap, type SongStatus } from '../library/client'
 import { modeKey } from '../scores/client'
 import { Countdown } from './Countdown'
 import { GameOver } from './GameOver'
@@ -22,7 +23,7 @@ type Props = {
   rhythmMode: RhythmMode
   speed: SpeedId
   /** Canción de la biblioteca, o `null` para el chiptune simulado. */
-  songId: string | null
+  song: SongStatus | null
   onMenu: () => void
 }
 
@@ -34,7 +35,7 @@ export function GameCanvas({
   language,
   rhythmMode,
   speed,
-  songId,
+  song,
   onMenu,
 }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -61,11 +62,11 @@ export function GameCanvas({
       if (canvas === null) return
 
       let buffer: AudioBuffer | null = null
-      if (rhythmMode === 'song' && songId !== null) {
+      if (rhythmMode === 'song' && song !== null) {
         setLoading(true)
         try {
-          if (bufferRef.current?.id !== songId) {
-            bufferRef.current = { id: songId, buffer: await loadSong(songId) }
+          if (bufferRef.current?.id !== song.id) {
+            bufferRef.current = { id: song.id, buffer: await loadSong(song.id) }
           }
           buffer = bufferRef.current.buffer
         } catch (e: unknown) {
@@ -82,16 +83,22 @@ export function GameCanvas({
 
       let rhythm: RhythmSource
       let bpm: number | null = DEFAULTS.bpm
+      let track: TrackInfo | null = null
 
       // La música arranca PRIMERO y la cuenta va encima: la intro de la canción
       // suena mientras el jugador se acomoda, en vez de sonar en el vacío.
-      if (buffer !== null && songId !== null) {
+      if (buffer !== null && song !== null) {
         try {
-          const beatmap = await songBeatmap(songId)
+          const beatmap = await songBeatmap(song.id)
           if (cancelled) return
           playback = playSong(buffer)
           rhythm = beatmapRhythm(beatmap, playback.startedAtMs)
           bpm = null
+          track = {
+            title: song.title,
+            bpm: beatmap.bpm,
+            corrected: song.bpmOverride !== null,
+          }
         } catch (e: unknown) {
           if (!cancelled) setError(String(e))
           return
@@ -115,6 +122,7 @@ export function GameCanvas({
         bpm,
         rhythm,
         nextSequence: sequenceProvider(sequenceType, language),
+        track,
         onGameOver: setOver,
       })
       loopRef.current = loop
@@ -152,7 +160,7 @@ export function GameCanvas({
       pausedRef.current = false
       void resumeAudio()
     }
-  }, [sequenceType, language, rhythmMode, speed, songId, run])
+  }, [sequenceType, language, rhythmMode, speed, song, run])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -174,7 +182,7 @@ export function GameCanvas({
   /**
    * Volver de la pausa no lleva cuenta regresiva: se descarta la ronda a medias
    * y el juego entra en anticipo, igual que después de un fallo. Un solo
-   * lenguaje para "esperá, ya volvés a jugar".
+   * lenguaje para "espera, ya vuelves a jugar".
    */
   async function unpause() {
     pausedRef.current = false
@@ -202,7 +210,7 @@ export function GameCanvas({
         </p>
       )}
 
-      {countdown !== null && <Countdown value={countdown} title="PREPARATE" />}
+      {countdown !== null && <Countdown value={countdown} title="PREPÁRATE" />}
 
       {error !== null && (
         <div className="fixed inset-0 grid place-content-center justify-items-center gap-4 bg-night px-6 text-center">
@@ -220,7 +228,7 @@ export function GameCanvas({
         <div className="fixed inset-0 grid place-content-center justify-items-center gap-6 bg-night/92 px-6 text-center">
           <h2 className="chrome font-display text-5xl leading-none">PAUSA</h2>
           <p className="max-w-[420px] text-[13px] text-ink-soft">
-            El reloj está congelado. Al volver vas a ver la próxima secuencia en gris con la
+            El reloj está congelado. Al volver verás la próxima secuencia en gris con la
             barra corriendo: cuando se prenda, se juega.
           </p>
           <div className="flex gap-3">

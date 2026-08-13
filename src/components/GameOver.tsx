@@ -104,8 +104,8 @@ export function GameOver({ state, mode, onRetry, onMenu }: Props) {
             {Math.abs(offset) < 25
               ? 'centrado'
               : offset < 0
-                ? 'apretás ANTES de tiempo'
-                : 'apretás DESPUÉS'}
+                ? 'presionas ANTES de tiempo'
+                : 'presionas DESPUÉS'}
           </span>
         )}
       </div>

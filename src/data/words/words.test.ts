@@ -11,7 +11,7 @@ const LENGTHS = Array.from(
 )
 
 /**
- * Las listas son datos escritos a mano, así que la validación va acá y no en la
+ * Las listas son datos escritos a mano, así que la validación va aquí y no en la
  * cabeza de quien las edita. Una sola palabra con Ñ o con tilde deja al jugador
  * comiéndose una ronda sin entender por qué: `normalizeKey` no la produce nunca
  * y la secuencia no puede avanzar.

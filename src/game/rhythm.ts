@@ -9,7 +9,7 @@ import { levelFor } from './engine'
  * tiene. Nada más. No sabe si se tipean flechas o palabras — eso es el eje 1.
  *
  * Antes esta lógica vivía adentro de `startRound`, o sea que el motor tenía
- * hardcodeada la fórmula de arcade. Se notó recién al aparecer el segundo modo.
+ * hardcodeada la fórmula de arcade. Se notó solo al aparecer el segundo modo.
  */
 export type RhythmSource = {
   roundDurationMs(rounds: number): number

@@ -18,7 +18,7 @@ use super::store::LibraryError;
 const FRAME: usize = 1024;
 const HOP: usize = 512;
 
-/// Rango de tempo que se busca. Fuera de acá se asume error de octava: una
+/// Rango de tempo que se busca. Fuera de aquí se asume error de octava: una
 /// canción de 60 BPM se detecta como 120, y para el juego está bien.
 const MIN_BPM: f32 = 70.0;
 const MAX_BPM: f32 = 180.0;
@@ -42,6 +42,40 @@ pub struct Beatmap {
     pub beats_per_round: u32,
     /// Derivado, pero se guarda para que el frontend no repita la cuenta.
     pub round_duration_ms: u32,
+}
+
+/// Límites duros para una corrección manual del tempo.
+pub const MIN_BPM_EDIT: f32 = 40.0;
+pub const MAX_BPM_EDIT: f32 = 240.0;
+
+/// Rango sugerido para corregir a mano, alrededor del detectado.
+///
+/// Va de la mitad al doble porque el fallo típico de la detección automática es
+/// el error de octava: un tema de 75 se detecta como 150 y viceversa.
+pub fn suggested_range(detected: f32) -> (f32, f32) {
+    (
+        (detected / 2.0).max(MIN_BPM_EDIT),
+        (detected * 2.0).min(MAX_BPM_EDIT),
+    )
+}
+
+pub fn clamp_bpm(bpm: f32) -> f32 {
+    bpm.clamp(MIN_BPM_EDIT, MAX_BPM_EDIT)
+}
+
+/// Rearma el beatmap con otro tempo, recalculando lo que depende de él.
+///
+/// El `firstBeatMs` no se toca: dónde empieza el primer golpe es una medición
+/// del audio, independiente de a qué velocidad se cuente después.
+pub fn with_bpm(beatmap: &Beatmap, bpm: f32) -> Beatmap {
+    let bpm = clamp_bpm(bpm);
+    let beats_per_round = pick_beats_per_round(bpm);
+    Beatmap {
+        bpm,
+        beats_per_round,
+        round_duration_ms: (beats_per_round as f32 * 60_000.0 / bpm) as u32,
+        ..beatmap.clone()
+    }
 }
 
 /// Analiza un archivo de audio y arma su beatmap.
@@ -80,7 +114,7 @@ pub fn build_beatmap(samples: &[f32], sample_rate: u32) -> Beatmap {
 /// aplasta las diferencias y los golpes dejan de destacarse.
 ///
 /// ponytail: es un detector por energía, no por flujo espectral. Anda bien con
-/// música percusiva, que es toda la que va a entrar acá. Si algún día falla con
+/// música percusiva, que es toda la que va a entrar aquí. Si algún día falla con
 /// temas suaves, el camino de salida es una FFT y flujo espectral por banda.
 pub fn novelty(samples: &[f32], frame: usize, hop: usize) -> Vec<f32> {
     const COMPRESSION: f32 = 100.0;
@@ -319,6 +353,41 @@ mod tests {
         let beatmap = build_beatmap(&[0.0; 100], SR);
         assert!(beatmap.bpm > 0.0);
         assert!(beatmap.round_duration_ms > 0);
+    }
+
+    #[test]
+    fn el_rango_sugerido_cubre_el_error_de_octava() {
+        // El fallo típico de la detección: un tema de 75 se detecta como 150.
+        let (min, max) = suggested_range(150.0);
+        assert!(min <= 75.0 && max >= 240.0_f32.min(300.0));
+
+        // Y nunca sale de los límites duros.
+        let (min, max) = suggested_range(200.0);
+        assert!(min >= MIN_BPM_EDIT && max <= MAX_BPM_EDIT);
+    }
+
+    #[test]
+    fn la_correccion_recalcula_lo_que_depende_del_tempo() {
+        let base = build_beatmap(&click_track(120.0, 10.0, 0.25), SR);
+        let corregido = with_bpm(&base, 60.0);
+
+        assert_eq!(corregido.bpm, 60.0);
+        // A 60 BPM un beat dura 1000ms: dos beats dan 2000, lo más cerca de 2400.
+        assert_eq!(corregido.beats_per_round, 2);
+        assert_eq!(corregido.round_duration_ms, 2000);
+        // Lo que es medición del audio no se toca.
+        assert_eq!(corregido.first_beat_ms, base.first_beat_ms);
+        assert_eq!(corregido.duration_ms, base.duration_ms);
+    }
+
+    #[test]
+    fn la_correccion_se_acota_a_los_limites() {
+        let base = build_beatmap(&click_track(120.0, 5.0, 0.0), SR);
+
+        assert_eq!(with_bpm(&base, 0.0).bpm, MIN_BPM_EDIT);
+        assert_eq!(with_bpm(&base, 10_000.0).bpm, MAX_BPM_EDIT);
+        // Un tempo de cero dividiría por cero al armar la grilla.
+        assert!(with_bpm(&base, 0.0).round_duration_ms > 0);
     }
 
     #[test]

@@ -15,8 +15,8 @@ que el jugador tipea y de dónde sale el ritmo son **decisiones independientes**
   `song` real (beatmap de la biblioteca).
 
 Son **2×3 = 6 combinaciones**. Concretamente: el generador de secuencias no sabe de dónde
-viene el ritmo, y el proveedor de ritmo no sabe qué se tipea. Si alguna vez tenés un
-`if (mode === 'arcade')` dentro del generador de secuencias, los ejes se te mezclaron.
+viene el ritmo, y el proveedor de ritmo no sabe qué se tipea. Si alguna vez tienes un
+`if (mode === 'arcade')` dentro del generador de secuencias, los ejes se mezclaron.
 
 ## Cómo se reparten las responsabilidades
 
@@ -37,7 +37,7 @@ duración de la ronda **como datos** en `startRound`, y no sabe de dónde salier
 ## Modo Arcade — el primero a construir
 
 Sin canción, sin descarga, sin biblioteca. **Es el modo que valida toda la mecánica.**
-Por eso va primero: si el timing no se siente bien acá, no lo va a salvar ningún beatmap.
+Por eso va primero: si el timing no se siente bien aquí, no lo va a salvar ningún beatmap.
 
 Música: chiptune generado con osciladores de Web Audio (kick, hi-hat, línea de bajo,
 adornos pentatónicos) a BPM fijo. Cero assets, cero descargas.
@@ -115,7 +115,7 @@ Cubre dos cosas de un saque:
   que tipear y en qué momento arranca.
 
 Volver de una pausa usa el mismo mecanismo, sin cuenta regresiva: un solo lenguaje visual
-para "esperá, ya volvés a jugar".
+para "espera, ya vuelves a jugar".
 
 ### La cuenta regresiva va sobre la música
 
@@ -136,14 +136,14 @@ juego, no el audio: `config.startsAtMs` retiene el arranque de las rondas.
 ### Progresión
 
 La barra se acelera **cada 4 aciertos**, con piso de 1500ms. El largo de la secuencia no se
-mueve. Una sola palanca de dificultad por modo: acá es la velocidad.
+mueve. Una sola palanca de dificultad por modo: aquí es la velocidad.
 
 ## Modo Canción
 
 **El tempo lo pone la canción.** Por eso la barra no puede acelerar: si acelera, se va del
 beat y se pierde lo único que hace que un juego de ritmo sea un juego de ritmo.
 
-Consecuencia directa: **el modelo de dificultad de arcade no se traslada acá.** La velocidad
+Consecuencia directa: **el modelo de dificultad de arcade no se traslada aquí.** La velocidad
 es fija y la única palanca es **cuántas teclas** tiene la secuencia.
 
 ```

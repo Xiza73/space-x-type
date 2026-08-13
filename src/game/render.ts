@@ -60,7 +60,20 @@ const JUDGEMENT_LABEL: Record<Judgement, { text: string; color: string }> = {
   miss: { text: 'MISS', color: COLORS.red },
 }
 
-export function draw(canvas: HTMLCanvasElement, state: GameState, nowMs: number): void {
+/** Lo que se muestra de la canción durante la partida. */
+export type TrackInfo = {
+  title: string
+  bpm: number
+  /** `true` si el tempo lo corrigió el jugador y no el análisis. */
+  corrected: boolean
+}
+
+export function draw(
+  canvas: HTMLCanvasElement,
+  state: GameState,
+  nowMs: number,
+  track: TrackInfo | null = null,
+): void {
   const ctx = prepare(canvas)
   if (ctx === null) return
 
@@ -78,6 +91,47 @@ export function draw(canvas: HTMLCanvasElement, state: GameState, nowMs: number)
   drawFeedback(ctx, state, nowMs, w, h)
   drawSequence(ctx, state, w, h)
   drawRail(ctx, state, nowMs, w, h)
+  if (track !== null) drawTrack(ctx, track, w, h)
+}
+
+/**
+ * Qué está sonando. Va abajo del todo y en tono apagado: durante la partida es
+ * contexto, no información de acción, así que no puede competir con el riel.
+ */
+function drawTrack(
+  ctx: CanvasRenderingContext2D,
+  track: TrackInfo,
+  w: number,
+  h: number,
+): void {
+  const y = h - 26
+
+  ctx.textAlign = 'center'
+  ctx.font = `600 13px ${FONTS.ui}`
+  ctx.fillStyle = COLORS.inkSoft
+  const title = ellipsize(ctx, track.title, w * 0.7)
+  ctx.fillText(title, w / 2, y)
+
+  ctx.font = `700 11px ${FONTS.ui}`
+  ctx.letterSpacing = '2px'
+  ctx.fillStyle = track.corrected ? COLORS.gold : COLORS.inkMuted
+  ctx.fillText(
+    `${Math.round(track.bpm)} BPM${track.corrected ? ' · AJUSTADO' : ''}`,
+    w / 2,
+    y + 16,
+  )
+  ctx.letterSpacing = '0px'
+}
+
+/** Recorta con puntos suspensivos si no entra. */
+function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text
+
+  let cut = text
+  while (cut.length > 1 && ctx.measureText(`${cut}…`).width > maxWidth) {
+    cut = cut.slice(0, -1)
+  }
+  return `${cut}…`
 }
 
 /**
@@ -116,7 +170,7 @@ function drawHud(
 
   // Cada modo muestra la palanca de dificultad que realmente se mueve: en
   // arcade el nivel (la velocidad), en canción la cantidad de teclas.
-  // Las teclas NO van acá: se dibujan pegadas al riel, que es donde el jugador
+  // Las teclas NO van aquí: se dibujan pegadas al riel, que es donde el jugador
   // tiene los ojos. Un dato que hay que percibir de inmediato no puede obligar
   // a mirar al otro extremo de la pantalla.
   if (remaining === null) {
@@ -207,9 +261,10 @@ function drawSequence(
   const tiles = tileLayout(state.sequence.length, w, h)
 
   ctx.save()
-  // En anticipo la secuencia se ve pero apagada: comunica "esto viene, todavía
-  // no lo toques" sin sacarla de la pantalla.
-  if (state.status === 'preview') ctx.globalAlpha = PREVIEW_ALPHA
+  // Fuera de la ronda la secuencia se ve pero apagada: "esto viene, todavía no
+  // se toca". Apagado es el equivalente visual de deshabilitado, y vale igual
+  // en el anticipo, en la pausa entre rondas y durante la cuenta regresiva.
+  if (state.status !== 'round') ctx.globalAlpha = PREVIEW_ALPHA
 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
@@ -225,7 +280,7 @@ function drawSequence(
     const step = state.sequence[i]
     if (step.dir === undefined) {
       // Chakra Petch y no Bungee: Bungee es un display muy pesado y sus letras
-      // sueltas se confunden entre sí. Acá la letra hay que leerla de un vistazo
+      // sueltas se confunden entre sí. Aquí la letra hay que leerla de un vistazo
       // y tipearla bien, así que manda la legibilidad.
       ctx.font = `700 34px ${FONTS.ui}`
       ctx.lineJoin = 'round'
@@ -384,7 +439,7 @@ const METER_MAX_H = 21
  * Reemplaza a un `TECLAS 6` porque el número no es el dato que hace falta. Lo
  * que el jugador necesita percibir de un vistazo es **dónde está en la curva**:
  * si viene subiendo, si está cerca del techo, si acaba de reiniciar. La forma
- * ascendente dice "esto se pone más difícil" sin una sola palabra, y la cantidad
+ * ascendente indica "esto se pone más difícil" sin una sola palabra, y la cantidad
  * exacta ya está a la vista en las casillas.
  */
 function drawDifficultyMeter(

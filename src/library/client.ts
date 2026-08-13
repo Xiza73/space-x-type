@@ -7,13 +7,27 @@ export type Song = {
   url: string
   audioFile: string
   addedAt: number
-  /** `null` mientras no se analizó el audio. */
+  /** Tempo detectado al analizar. No se pisa nunca. */
   bpm: number | null
+  /** Corrección manual. `null` = vale el detectado. */
+  bpmOverride: number | null
 }
 
 export type SongStatus = Song & {
   /** `false` si el índice la tiene pero el audio ya no está en el disco. */
   intact: boolean
+  /** Rango sugerido para corregir el tempo. Lo calcula el core. */
+  bpmRange: [number, number] | null
+}
+
+/** Tempo con el que se juega: la corrección si existe, si no el detectado. */
+export function effectiveBpm(song: Song): number | null {
+  return song.bpmOverride ?? song.bpm
+}
+
+/** Guarda una corrección de tempo. `null` vuelve al detectado. */
+export function setSongBpm(id: string, bpm: number | null): Promise<Song> {
+  return invoke<Song>('set_song_bpm', { id, bpm })
 }
 
 export type Processed = {

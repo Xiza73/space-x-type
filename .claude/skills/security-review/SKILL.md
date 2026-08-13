@@ -93,4 +93,4 @@ Una línea por hallazgo, de más grave a menos:
 ```
 
 Un hallazgo necesita un **escenario de explotación concreto**, no una categoría genérica.
-Si no lo podés escribir, no es un hallazgo. Si no hay nada, decilo en una línea.
+Si no lo puedes escribir, no es un hallazgo. Si no hay nada, dilo en una línea.

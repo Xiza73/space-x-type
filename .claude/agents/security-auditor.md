@@ -11,7 +11,7 @@ offline.
 ## El modelo de amenaza real
 
 No hay servidor, ni auth, ni datos de terceros, ni superficie de red entrante. Nada de eso
-importa acá. Lo que **sí** importa:
+importa aquí. Lo que **sí** importa:
 
 > **La app le pasa una URL escrita por el usuario a un binario externo (`yt-dlp`), y escribe
 > el resultado —con metadata que viene de internet— en el disco.**
@@ -72,4 +72,4 @@ ignoren los hallazgos reales.
 Calibrá según el contexto: es una app de un solo usuario, offline. Un riesgo teórico que
 requiere que el atacante ya tenga la máquina no es crítico. Decilo así.
 
-Si no hay nada, decilo en una línea. **No reportás nada solo para justificar la corrida.**
+Si no hay nada, dilo en una línea. **No reportas nada solo para justificar la corrida.**

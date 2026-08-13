@@ -13,7 +13,7 @@ export default defineConfig({
   clearScreen: false,
 
   server: {
-    // Puerto fijo: tauri.conf.json apunta acá y no puede adivinar uno nuevo.
+    // Puerto fijo: tauri.conf.json apunta aquí y no puede adivinar uno nuevo.
     port: 1420,
     strictPort: true,
     host: host || false,

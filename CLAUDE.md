@@ -7,7 +7,7 @@ una barra horizontal avanza a velocidad constante y sobre ella aparece una secue
 inputs que hay que **tipear** antes de confirmar con la **barra espaciadora** dentro de la
 ventana de timing correcta.
 
-Diferencias con el original: sin baile, sin avatares, sin social. Entrás y jugás.
+Diferencias con el original: sin baile, sin avatares, sin social. Entrás y juegas.
 
 Nombre de producto: **SPACE x TYPE**. La "x" se lee como cruce: es literalmente lo que hace
 el juego — tipo de secuencia × fuente del ritmo. El prototipo de referencia se llamaba
@@ -19,11 +19,11 @@ Cuatro aportes propios:
    que se acelera con cada nivel. Es el modo que valida toda la mecánica.
 2. **Modo palabras** — además de secuencias de flechas, la secuencia puede ser una palabra
    real en español o inglés (bibliotecas de palabras embebidas).
-3. **Procesador musical** — le pasás una URL de YouTube, el sistema descarga el audio,
+3. **Procesador musical** — le pasas una URL de YouTube, el sistema descarga el audio,
    detecta BPM/onsets y genera un beatmap que dura toda la partida. El fondo puede ser el
    video original con baja opacidad o visuales psicodélicos generativos.
 4. **Biblioteca personal** — cada canción procesada se guarda en el disco. Al entrar,
-   elegís una de tu biblioteca o procesás una nueva. Procesar es una operación de **una sola
+   eliges una de tu biblioteca o procesas una nueva. Procesar es una operación de **una sola
    vez** por canción, no un paso previo a cada partida.
 
 Tipo de secuencia (flechas/palabras) y fuente del ritmo (arcade/canción simulada/canción
@@ -125,7 +125,7 @@ Single-package (no monorepo): un frontend + un core Rust, versionados juntos.
 ```
 
 `design/` es material de referencia local y está en `.gitignore`. **Lo que importa de ahí ya
-está extraído a `.claude/rules/`** — si necesitás la paleta o las constantes del prototipo,
+está extraído a `.claude/rules/`** — si necesitas la paleta o las constantes del prototipo,
 están ahí, versionadas.
 
 ## Integraciones externas
@@ -165,7 +165,7 @@ Reglas:
 - Borrar una canción borra la carpeta **y** la entrada del índice.
 
 Sin base de datos. Un índice JSON alcanza para una biblioteca personal de decenas o
-centenares de canciones; se evalúa SQLite recién si el escaneo lineal llega a molestar.
+centenares de canciones; se evalúa SQLite solo si el escaneo lineal llega a molestar.
 
 ## Reglas de trabajo con Claude
 
@@ -174,7 +174,7 @@ centenares de canciones; se evalúa SQLite recién si el escaneo lineal llega a 
   pregunta — no se improvisa.
 - Proponer la solución más simple que funcione. Si la stdlib o una API nativa lo resuelve,
   no se agrega una dependencia.
-- Verificar antes de afirmar. Si no estás seguro de una API, la leés.
+- Verificar antes de afirmar. Si no estás seguro de una API, la lees.
 - Marcar los atajos deliberados con un comentario que nombre el techo y el camino de salida.
 
 **No hacer**

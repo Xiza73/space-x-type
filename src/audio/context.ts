@@ -65,7 +65,7 @@ export function nowMs(): number {
 
 /**
  * Agenda un tono. `atSec` va en segundos del reloj de audio (no en ms):
- * es la unidad que espera la Web Audio API y acá estamos del lado del audio.
+ * es la unidad que espera la Web Audio API y aquí estamos del lado del audio.
  *
  * ponytail: sale directo a `destination`. Cuando haga falta volumen, se mete
  * un GainNode maestro y se cambia únicamente esta función.

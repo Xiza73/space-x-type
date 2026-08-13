@@ -48,11 +48,11 @@
  * usar clases. Los dos archivos NO pueden divergir: hay un test que los compara
  * (`src/theme/tokens.test.ts`).
  *
- * Ojo con los nombres: un color llamado `base` generaría `text-base`, que ya
+ * Atención con los nombres: un color llamado `base` generaría `text-base`, que ya
  * existe en Tailwind como tamaño de fuente. Por eso `night` y no `base`.
  *
  * `static` emite TODAS las variables. Sin eso Tailwind poda las que ninguna
- * clase usa, y te encontrás con que `--color-magenta` existe o no según qué
+ * clase usa, y te encuentras con que `--color-magenta` existe o no según qué
  * clases haya en el markup ese día. Una paleta a medias es peor que ninguna.
  */
 @theme static {
