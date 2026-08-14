@@ -1,0 +1,40 @@
+# Verdad de campo para el banco de tempo.
+#
+# id de YouTube <TAB> bpm real <TAB> grupo <TAB> título
+#
+# El BPM es el **pulso que se siente**: el que marcarías con el pie. No el que
+# reporta Spotify, que para las canciones lentas suele venir al doble — es el
+# mismo error de octava que estamos midiendo, así que usarlo como verdad de campo
+# sería medir contra el error.
+#
+# GRUPO — y esto es la parte que importa:
+#
+#   calibración   se puede mirar, se puede ajustar contra esto
+#   validación    NO SE MIRA hasta que el algoritmo está cerrado
+#
+# La partición está fija desde antes de tocar ninguna constante. Si alguna vez
+# ajustás algo mirando el grupo de validación, ese grupo dejó de medir nada y hay
+# que conseguir canciones nuevas. Así se llegó al problema que esto viene a
+# arreglar: un barrido de parámetros contra las mismas señales con las que después
+# se validaba daba 11/11 por construcción, y el detector acertaba 5 de 11 en
+# canciones reales.
+#
+# Fuentes de cada tempo en `bench/FUENTES.md`.
+
+FtutLA63Cp8	138	calibración	Bad Apple!! - Alstroemeria Records
+cHQai9mQcDM	74	calibración	Jet - Look What You've Done
+q7mlB-adMBc	86	calibración	Coldplay - Yellow
+eIsqxj9cIfc	90	calibración	Zoé - Luna
+PDLxvEieGbg	86	calibración	Big Boy - Mis Ojos Lloran Por Ti
+J9abt3xpdDU	129	validación	Justin Bieber - Beauty And A Beat
+sz5vhuGjL_g	75	validación	Keane - Bedshaped
+tUOQl42yoHU	94	validación	Willie Colón - Idilio
+xFGE8BuOn0g	86	validación	Keane - Somewhere Only We Know
+a0pKzHtb_Gc	152	validación	Offenbach - Can Can
+D93vYwuMeUw	100	validación	Linkin Park - Given Up
+QDYfEBY9NM4	72	calibración	The Beatles - Let It Be
+Kr4EQDVETuA	117	calibración	Michael Jackson - Billie Jean
+skdE0KAFCEA	177	calibración	Ramones - Blitzkrieg Bop
+fAuT8_dboWo	92	validación	Radiohead - Creep
+bVVwmRbBZ-I	104	validación	Bee Gees - Stayin' Alive
+fHI8X4OXluQ	171	validación	The Weeknd - Blinding Lights

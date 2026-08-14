@@ -43,3 +43,6 @@ pnpm-debug.log*
 
 # Sidecars: se bajan al construir con `bun run tools`, no se versionan.
 src-tauri/binaries/
+
+# audio del banco de tempo: decenas de MB con derechos
+src-tauri/bench/audio/
