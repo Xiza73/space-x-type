@@ -41,11 +41,26 @@ es el que corresponde al pulso. Cuando discrepan por otra cosa, la canción se m
 porque es lo que dan los pools de DJ, que anotan el tempo con el que se mezcla —o sea el que
 se siente—, pero es el valor con menos respaldo del banco.
 
-**Zoé – Luna.** Se anotó 90 y la autocorrelación insiste en 60 y 120. Podría ser que la
-canción vaya a 120 y la verdad de campo esté mal. **Se dejó en 90 a propósito**: quien lo
-reportó como mal detectado fue el jugador escuchándola, y el oído del jugador es mejor verdad
-de campo que una base de datos — pero conviene confirmarlo antes de sacar conclusiones de esa
-fila.
+**Zoé – Luna.** ⚠️ **Sin resolver, y es la fila que más conviene resolver.**
+
+Se anotó 90 porque lo dice SongBPM. Pero la autocorrelación del audio da `60(1.00)` y
+`120(0.91)` —exactamente el doble uno del otro— y **en 90 no hay absolutamente nada**. Una
+familia de octavas limpia {60, 120} sin rastro del valor anotado es señal de que el número
+anotado es el que está mal.
+
+El jugador, escuchándola, descartó las dos veces que fuera 120 por rápida. Eso deja **60** como
+la hipótesis más probable.
+
+Importa porque cambia de qué tipo es el error:
+
+| si Luna es | el detector falla por | ¿lo arregla el botón? |
+|---|---|---|
+| 90 | 4/3 | **no** — el ×2 corrige octavas, no tercios |
+| 60 | exactamente ×2 | sí, un clic |
+
+**No se cambió sin confirmar.** Mover la verdad de campo para que el detector quede mejor es
+justamente lo que este banco existe para impedir. La comprobación es de un minuto: poner Luna
+en 60 en la biblioteca y jugarla — si la barra cae con la música, es 60.
 
 ## Cómo agregar canciones
 
