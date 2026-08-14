@@ -172,33 +172,48 @@ tener excepciones, porque no hay una segunda variable que la desvíe.
 > Hay tests de los dos lados que recorren los 200 tempos de a uno y fallan si la relación se
 > vuelve a dar vuelta.
 
-> ### La detección de tempo busca entre 60 y 145, y eso es una decisión
+> ### La detección de tempo acierta 10 de 17, y arriba de 130 devuelve la mitad
 >
-> Una canción genuinamente más rápida sale **a la mitad**. Se elige quedarse corto porque el
-> error que aparece una y otra vez es el contrario: baladas detectadas al doble. "Yellow" daba
-> 172 en vez de 86.
+> Eso es lo que hay hoy, medido contra un corpus de canciones reales con verdad de campo
+> verificada (`src-tauri/bench/`). No es una decisión de diseño: es el techo al que se llegó.
 >
-> **No es falta de ajuste.** Yellow tiene una guitarra rasgueada en corcheas, todas igual de
-> fuertes: el pulso de 86 no está en la fuerza de los golpes sino en la armonía, que la función
-> de novedad no ve. Se midieron tres formas de distinguirlo y **ninguna separa** una balada con
-> corcheas de un tema rápido con acentos:
+> **Antes decía otra cosa acá, y estaba mal.** Decía que el rango se estrechaba a 60–145 a
+> propósito para que el error quedara siempre en la misma dirección. Eso tapaba un síntoma. La
+> causa real era que la función de novedad medía **energía de banda ancha**: en música no
+> percusiva —una balada de piano, una guitarra rasgueada— el nivel es casi plano, la
+> autocorrelación quedaba en 0.001, o sea ruido, y el tempo lo terminaba eligiendo la
+> preferencia perceptual. Se comprobó: "Luna" devolvía 120.2 con la preferencia clavada en 121.
+> El estimador estaba escupiendo su propia constante.
 >
-> | intento | resultado |
-> |---|---|
-> | filtrar por banda de frecuencia | graves, medios y completo dan lo mismo en 8 de 9 |
-> | mover la preferencia de tempo | arregla una canción y rompe otra, siempre |
-> | comparar la fuerza de los golpes intermedios | Yellow da 0.93 y Can Can 0.77 — al revés de lo predicho |
+> Hoy la novedad es **flujo espectral** —cuánto cambió el contenido del espectro, no cuánto
+> subió el volumen— y eso sí ve el ataque de un acorde. Con eso, cuatro canciones que fallaban
+> por un factor de 1.33 pasaron a acertar, y ese error es el que importaba porque **ningún
+> botón lo arregla**: el ×2 de la biblioteca corrige octavas, no tercios.
 >
-> Medido sobre nueve canciones reales, estrechar el rango arregla "Yellow" y **no mueve ninguna
-> otra**, salvo "Can Can" —rápida de verdad— que pasa a salir a la mitad.
+> Lo que **no** está resuelto es elegir el nivel métrico. En una señal de período P, la
+> autocorrelación en 2P es igual de fuerte que en P: los dos son períodos de verdad, así que la
+> ACF nunca puede preferir el fundamental. Se probaron dos formas de que decidiera el audio y
+> **las dos se midieron y se descartaron** —sumar los múltiplos del candidato (inerte) y el
+> contraste entre beat y medio beat (arregla los sintéticos, destroza la música real: 1/8)—.
+> Queda la preferencia perceptual desempatando, centrada en 95, y por eso todo lo que pasa de
+> ~130 sale a la mitad.
 >
-> Así el error queda en **una sola dirección**: predecible, y corregible con el botón ×2. Para
-> jugar además conviene, porque una barra lenta de más se juega igual y una a 172 con ocho
-> teclas no.
+> **Lo que falta probar es análisis armónico** —cromagramas, ritmo de acordes— o una biblioteca
+> de beat-tracking ya validada. La periodicidad de la energía sola no alcanza, y eso ya está
+> medido tres veces.
 >
-> Para volver a tocar esto hay que medir contra audio real, con `banco::biblioteca_real`. Las
-> señales sintéticas fijan propiedades pero no calibran: un tren de clicks no se parece a una
-> balada.
+> ### El corpus tiene calibración y validación, y esa partición no es opcional
+>
+> Se ajusta contra calibración y **no se mira validación** hasta cerrar. Sin eso, ajustar y
+> medir contra lo mismo da 100% por construcción: hubo un barrido de parámetros que daba 11/11
+> sobre señales sintéticas mientras el detector acertaba 5 de 11 canciones reales. Ese barrido
+> se borró.
+>
+> ```bash
+> bun run bench:fetch   # baja el audio del corpus
+> SXT_SONGS_DIR=.../bench/audio cargo test --release -- --ignored corpus --nocapture
+> ```
+
 
 En la canción **simulada** el jugador elige el BPM, y ese mismo BPM mueve el chiptune y la
 barra: van juntos. En la **real** el BPM sale del análisis y se ajusta en la biblioteca.
