@@ -5,6 +5,7 @@
 //! descargar nada.
 
 pub mod analysis;
+mod fft;
 pub mod source;
 pub mod store;
 pub mod tooling;

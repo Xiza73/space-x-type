@@ -1,0 +1,16 @@
+# Canciones a incorporar al banco. `bun run bench:fetch` las resuelve, las baja y
+# las pasa a `tempos.tsv` con el id ya fijo.
+#
+# búsqueda <TAB> bpm real <TAB> grupo <TAB> título
+#
+# La búsqueda apunta al audio oficial a propósito. Un cover o un vivo tienen otro
+# tempo, y ahí la verdad de campo queda envenenada sin que nadie se entere. El
+# script imprime el título que devolvió YouTube para poder mirarlo.
+
+Adele Someone Like You official audio	68	calibración	Adele - Someone Like You
+The Beatles Let It Be remastered official audio	72	calibración	The Beatles - Let It Be
+Michael Jackson Billie Jean official audio	117	calibración	Michael Jackson - Billie Jean
+Ramones Blitzkrieg Bop official audio	177	calibración	Ramones - Blitzkrieg Bop
+Radiohead Creep official audio	92	validación	Radiohead - Creep
+Bee Gees Stayin Alive official audio	104	validación	Bee Gees - Stayin' Alive
+The Weeknd Blinding Lights official audio	171	validación	The Weeknd - Blinding Lights
