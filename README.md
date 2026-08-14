@@ -1,6 +1,8 @@
 <div align="center">
 
+<!-- capturas pendientes, ver docs/capturas/LEEME.md
 <img src="docs/capturas/logo.png" alt="SPACE x TYPE" width="180">
+-->
 
 # SPACE x TYPE
 
@@ -14,7 +16,7 @@ Una barra cruza la pantalla, tipeás la secuencia, y confirmás en el momento ju
 
 ---
 
-![Gameplay](docs/capturas/gameplay-arcade.png)
+<!-- ![Gameplay](docs/capturas/gameplay-arcade.png) -->
 
 ## Qué es
 
@@ -90,7 +92,7 @@ Todo se multiplica por `1 + ⌊combo / 5⌋`.
 
 ## Biblioteca personal
 
-![Biblioteca](docs/capturas/biblioteca.png)
+<!-- ![Biblioteca](docs/capturas/biblioteca.png) -->
 
 Le pasás una URL de YouTube, la app baja el audio, detecta el tempo y genera el beatmap.
 **Procesar es una sola vez por canción**: queda guardada en el disco y la elegís del combo la
